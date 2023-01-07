@@ -50,20 +50,27 @@ class BotDB:
         self.cursor.execute("INSERT INTO `users` (`user_id`, `username`, `first_name`, `last_name`, `dialect`) VALUES (?, ?, ?, ?, ?)",(user_id, username, fname, lname, dialect,))
         return self.conn.commit()
 
-    def add_sign(self, user_id, dialect, name, part, desc, video1, video2, video3, picture, privacy):
+    def add_sign(self, user_id, dialect, name, part, desc, picture, privacy):
         """Добавление жеста в БД"""
-        self.cursor.execute("INSERT INTO `signs` (`author_id`, `dialect`, `name`, `part`, `description`, `video_file1`, `video_file2`, `video_file3`, `picture`, `privacy`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",(user_id, dialect, name, part, desc, video1, video2, video3, picture,privacy,))
-        return self.conn.commit()
+        self.cursor.execute("INSERT INTO `signs` (`author_id`, `dialect`, `name`, `part`, `description`, `picture`, `privacy`) VALUES (?, ?, ?, ?, ?, ?, ?)",(user_id, dialect, name, part, desc, picture,privacy,))
+        self.conn.commit()
+        return self.cursor.lastrowid
 
-    def add_sign_more_video(self, user_id, dialect, sign_id, video, privacy):
+    def add_sign_video(self, user_id, dialect, sign_id, video, privacy):
         """Добавление жеста в БД"""
-        self.cursor.execute("INSERT INTO sign_more_videos (`author_id`, `dialect`, `sign_id`, `video_file`, `privacy`) VALUES (?, ?, ?, ?, ?)",(user_id, dialect, sign_id, video, privacy,))
-        return self.conn.commit()
+        self.cursor.execute("INSERT INTO sign_videos (`author_id`, `dialect`, `sign_id`, `video_file`, `privacy`) VALUES (?, ?, ?, ?, ?)",(user_id, dialect, sign_id, video, privacy,))
+        self.conn.commit()
+        return self.cursor.lastrowid
 
-    def search_sign_more_video(self, sign_id, user_id):
+    def search_sign_videos(self, sign_id, user_id):
         """Поиск дополнительных вариантов жестов в БД"""
-        result = self.cursor.execute("SELECT * FROM sign_more_videos WHERE sign_id = ? AND (privacy = 0 OR author_id = ? ) ORDER BY id",(sign_id, user_id,))
+        result = self.cursor.execute("SELECT * FROM sign_videos WHERE sign_id = ? AND (privacy = 0 OR author_id = ? ) ORDER BY id",(sign_id, user_id,))
         return result.fetchall()
+
+    def search_sign_video(self, video_id, user_id):
+        """Поиск дополнительных вариантов жестов в БД"""
+        result = self.cursor.execute("SELECT * FROM sign_videos WHERE id = ? AND (privacy = 0 OR author_id = ? ) ORDER BY id",(video_id, user_id,))
+        return result.fetchone()
 
     def search_signs(self, name, user_id):
         """Поиск жестов в БД"""
@@ -77,49 +84,56 @@ class BotDB:
         result = self.cursor.execute("SELECT * FROM signs WHERE id = ? AND (privacy = 0 OR author_id = ? )",(sign_id, user_id))
         return result.fetchone()
 
+    def search_sign_by_video(self, video_id):
+        """Получение жеста из БД"""
+        result = self.cursor.execute("SELECT signs.id, signs.name, signs.part FROM signs,sign_videos WHERE sign_videos.id = ? AND sign_id = signs.id",(video_id,))
+        return result.fetchone()
+
     def search_sign_by_name_auth(self, name, part, author_id):
         """Получение жеста из БД"""
         result = self.cursor.execute("SELECT * FROM signs WHERE name = ? AND part = ? AND author_id = ?",(name, part, author_id,))
         return result.fetchone()
 
-    def make_sign_fav(self, user_id, sign_id):
+    def make_sign_video_fav(self, user_id, video_id):
         """Добавление жеста в избранное"""
-        self.cursor.execute("INSERT INTO fav_signs (user_id, sign_id) VALUES (?, ?)",(user_id, sign_id, ))
+        self.cursor.execute("INSERT INTO fav_sign_videos (user_id, video_id) VALUES (?, ?)",(user_id, video_id, ))
         return self.conn.commit()
 
-    def search_sign_fav(self, user_id, sign_id):
+    def search_sign_video_fav(self, user_id, video_id):
         """Проверка, добавлен ли жест в избранное"""
-        result = self.cursor.execute("SELECT * FROM fav_signs WHERE user_id = ? AND sign_id = ?",(user_id,sign_id,))
+        result = self.cursor.execute("SELECT * FROM fav_sign_videos WHERE user_id = ? AND video_id = ?",(user_id,video_id,))
         return bool(len(result.fetchall()))
 
-    def make_sign_nfav(self, user_id, sign_id):
+    def make_sign_video_nfav(self, user_id, video_id):
         """Удаление жеста из избранного"""
-        self.cursor.execute("DELETE FROM fav_signs WHERE user_id = ? AND sign_id = ?",(user_id,sign_id,))
+        self.cursor.execute("DELETE FROM fav_sign_videos WHERE user_id = ? AND video_id = ?",(user_id,video_id,))
         return self.conn.commit()
 
-    def search_signs_fav(self, user_id):
+    def search_sign_videos_fav(self, user_id):
         """Поиск всех жестов в избранном"""
-        result = self.cursor.execute("SELECT id, name, part FROM signs, fav_signs WHERE (privacy = 0 OR author_id = ?) AND id = sign_id AND user_id = ?",(user_id,user_id,))
+        result = self.cursor.execute("SELECT signs.id, name, part, video_id FROM signs, sign_videos, fav_sign_videos "\
+            "WHERE (sign_videos.privacy = 0 OR sign_videos.author_id = ?) AND sign_videos.id = video_id AND sign_id = signs.id AND user_id = ?",(user_id,user_id,))
         return result.fetchall()
 
-    def make_sign_learn(self, user_id, sign_id):
+    def make_sign_video_learn(self, user_id, video_id):
         """Добавление жеста в изучаемые"""
-        self.cursor.execute("INSERT INTO learn_signs (user_id, sign_id) VALUES (?, ?)",(user_id, sign_id, ))
+        self.cursor.execute("INSERT INTO learn_sign_videos (user_id, video_id) VALUES (?, ?)",(user_id, video_id, ))
         return self.conn.commit()
 
-    def search_sign_learn(self, user_id, sign_id):
+    def search_sign_video_learn(self, user_id, video_id):
         """Проверка, добавлен ли жест в изучаемое"""
-        result = self.cursor.execute("SELECT * FROM learn_signs WHERE user_id = ? AND sign_id = ?",(user_id,sign_id,))
+        result = self.cursor.execute("SELECT * FROM learn_sign_videos WHERE user_id = ? AND video_id = ?",(user_id,video_id,))
         return bool(len(result.fetchall()))
 
-    def make_sign_nlearn(self, user_id, sign_id):
+    def make_sign_video_nlearn(self, user_id, video_id):
         """Удаление жеста из изуччаемого"""
-        self.cursor.execute("DELETE FROM learn_signs WHERE user_id = ? AND sign_id = ?",(user_id,sign_id,))
+        self.cursor.execute("DELETE FROM learn_sign_videos WHERE user_id = ? AND video_id = ?",(user_id,video_id,))
         return self.conn.commit()
 
-    def search_signs_learn(self, user_id):
+    def search_sign_videos_learn(self, user_id):
         """Поиск всех жестов из изучаемого"""
-        result = self.cursor.execute("SELECT id, name, part FROM signs, learn_signs WHERE (privacy = 0 OR author_id = ?) AND id = sign_id AND user_id = ?",(user_id,user_id,))
+        result = self.cursor.execute("SELECT signs.id, name, part, video_id FROM signs, sign_videos, learn_sign_videos "\
+            "WHERE (sign_videos.privacy = 0 OR sign_videos.author_id = ?) AND sign_videos.id = video_id AND sign_id = signs.id AND user_id = ?",(user_id,user_id,))
         return result.fetchall()
 
     def add_cat(self, name, description):
@@ -152,24 +166,27 @@ class BotDB:
         result = self.cursor.execute("SELECT signs.id, signs.name, signs.part FROM categories, signs, sign_categories WHERE categories.id = ? AND categories.id = category_id AND sign_id = signs.id AND (privacy = 0 OR author_id = ?)",(category_id,user_id,))
         return result.fetchall()
 
-    def add_sim_signs(self, sign_id, sign2_id, diff):
+    def add_sim_signs(self, video_id, video2_id, diff):
         """Добавление связи между похожими жестами"""
-        self.cursor.execute("INSERT INTO sim_signs (sign_id, sign2_id, diff) VALUES (?, ?, ?)",(sign_id, sign2_id, diff,))
+        self.cursor.execute("INSERT INTO sim_sign_videos (video_id, video2_id, diff) VALUES (?, ?, ?)",(video_id, video2_id, diff,))
         return self.conn.commit()
 
-    def del_sim_signs(self, sign_id, sign2_id):
+    def del_sim_signs(self, video_id, video2_id):
         """Удаление связи между похожими жестами"""
-        self.cursor.execute("DELETE FROM sim_signs WHERE (sign_id = ? AND sign2_id = ?) OR (sign2_id = ? AND sign_id = ?)",(sign_id, sign2_id, sign_id, sign2_id,))
+        self.cursor.execute("DELETE FROM sim_sign_videos WHERE (video_id = ? AND video2_id = ?) OR (video2_id = ? AND video_id = ?)",(video_id, video2_id, video_id, video2_id,))
         return self.conn.commit()
 
-    def check_sim_signs(self, sign_id, sign2_id):
+    def check_sim_sign_videos(self, video_id, video2_id):
         """Проверка связи между похожими жестами"""
-        result = self.cursor.execute("SELECT * FROM sim_signs WHERE (sign_id = ? AND sign2_id = ?) OR (sign2_id = ? AND sign_id = ?)",(sign_id, sign2_id, sign_id, sign2_id,))
+        result = self.cursor.execute("SELECT * FROM sim_sign_videos WHERE (video_id = ? AND video2_id = ?) OR (video2_id = ? AND video_id = ?)",(video_id, video2_id, video_id, video2_id,))
         return bool(len(result.fetchall()))
 
-    def search_sim_signs(self, sign_id, user_id):
+    def search_sim_sign_videos(self, video_id, user_id):
         """Поиск похожих жестов"""
-        result = self.cursor.execute("SELECT signs.id, signs.name, signs.part, diff FROM signs, sim_signs WHERE sign_id = ? AND sign2_id = id AND (privacy = 0 OR author_id = ?) UNION SELECT signs.id, signs.name, signs.part, diff FROM signs, sim_signs WHERE sign2_id = ? AND sign_id = id AND (privacy = 0 OR author_id = ?)",(sign_id, user_id, sign_id, user_id,))
+        result = self.cursor.execute("SELECT signs.id, signs.name, signs.part, sign_videos.id, diff FROM signs,sign_videos, sim_sign_videos "\
+           "WHERE video2_id = sign_videos.id AND sign_id = signs.id AND video_id = ? AND (sign_videos.privacy = 0 OR sign_videos.author_id = ?) "\
+           "UNION SELECT signs.id, signs.name, signs.part, sign_videos.id, diff FROM signs,sign_videos, sim_sign_videos "\
+           "WHERE video_id = sign_videos.id AND sign_id = signs.id AND video2_id = ? AND (sign_videos.privacy = 0 OR sign_videos.author_id = ?)",(video_id, user_id, video_id, user_id,))
         return result.fetchall()
 
     def add_sign_cat(self, sign_id, category_id):
