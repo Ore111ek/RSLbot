@@ -5,7 +5,7 @@ import re
 from db import BotDB
 BotDB = BotDB('RSLbot.db')
 
-bot = telebot.TeleBot('5744274566:AAHRaYf-jV2o0ibwQWlL92Bh3jpLh3CTEcg')
+bot = telebot.TeleBot('5661572549:AAGDgWFtN-b-p-0aj4Vljs0Tbl353HWjFP8')
 ADMIN_id = 923048680
 
 isRunning = 0
@@ -13,7 +13,12 @@ isRunning = 0
 #isRunningAddCat = 0
 sim_video_id = 0
 sim_video2_id = 0
+comp_video_id = 0
+comp_sen_video_id = 0
 files = []
+Sign_Sen_Flag = True
+Sign_Sen_search_Flag = True
+#sen_files = []
 
 def form_text_num_signs(num):
     text = 'Найден ' if num==1 else 'Найдено '
@@ -55,6 +60,115 @@ def form_sign_text(sign,ver_num):
     msg += f'\n{sign[3]}'
     return msg
 
+def form_sen_text(sen,ver_num):
+    msg = f'<b>{sen[1]}</b>'
+    if ver_num:
+        msg += f', {ver_num} вариант'
+
+    msg += f'\n{sen[5]}'
+    return msg
+
+def get_video_from_msg(msg):
+    if msg.document:
+        file_name = msg.json['document']['file_name']
+        file_info = bot.get_file(msg.document.file_id)
+    elif msg.video:
+        #file_name = message.json['video']['file_name']
+        file_name = 'sign_'+str(msg.video.file_id)
+        file_info = bot.get_file(msg.video.file_id)
+        #bot.send_message(chat_id, 'Распознано video')
+    elif msg.animation:
+        file_name = msg.json['animation']['file_name']
+        file_info = bot.get_file(msg.animation.file_id)
+        #bot.send_message(chat_id, 'Распознано animation')
+    elif msg.video_note:
+        file_name = msg.json['video_note']['file_id']
+        file_info = bot.get_file(msg.video_note.file_id)
+        #bot.send_message(chat_id, 'Распознано video_note')
+    else:
+        file_name = None
+        file_info = None
+    return file_name,file_info
+
+def form_sen_keyboard(chat_id,sen_id,video_id = 0):
+    user = BotDB.get_user_by_user_id(chat_id)
+    if sen_id == 0:
+        sen = BotDB.search_sen_by_video(video_id)
+        sen_id = sen[0]
+    else:
+        sen = BotDB.search_sen(sen_id,chat_id)
+
+    videos = BotDB.search_sen_videos(sen_id,chat_id)
+    if video_id == 0:
+        video_id = videos[0][0]
+        author_id = videos[0][3]
+        ver_num = 1
+    else:
+        i = 1
+        for v in videos:
+            if video_id == v[0]:
+                ver_num = i
+                author_id = v[3]
+            i += 1
+    if len(videos) < 2:
+        ver_num = 0
+    markup = types.InlineKeyboardMarkup()
+    markup.row_width = 2
+    btns = []
+    #more_videos = BotDB.search_sign_more_video(sign_id, chat_id)
+
+    num = len(videos)
+    if num>1:
+        num_of_rows = (num-1)//8+1
+        i=1
+        for v in videos:
+            btn = types.InlineKeyboardButton(str(i), callback_data = '/show_ver_sen_'+str(videos[i-1][0])+'_'+str(sen_id))
+            btns.append(btn)
+            if (num_of_rows > 1) and (i%((num+num%2)//num_of_rows) == 0):
+                markup.row(*btns)
+                btns = []
+            i += 1
+        markup.row(*btns)
+        btns = []
+
+    categories = BotDB.get_cat_by_sen_id(sen_id)
+    if len(categories):
+        for cat in categories:
+            btn = types.InlineKeyboardButton(cat[1], callback_data = '/show_cat_sens_f_1_'+str(cat[0]))
+            btns.append(btn)
+    if len(BotDB.search_comp_signs_by_sen(video_id,chat_id)):
+        btn = types.InlineKeyboardButton("Жесты", callback_data = '/show_comp_sign_f_1_'+str(video_id))
+        btns.append(btn)
+    if user[7]%10 == 1 and ((len(categories) == 0) or (author_id == chat_id) or (user[7]//10 == 1)):
+        btn = types.InlineKeyboardButton("Изм.категорию", callback_data = '/change_sen_cat_f_1_'+str(sen_id))
+        btns.append(btn)
+    if user[7]%10 == 1:
+        btn = types.InlineKeyboardButton("+ Вариант", callback_data = '/add_sen_video_'+str(sen_id))
+        btns.append(btn)
+    if user[7]%10 == 1:
+        btn = types.InlineKeyboardButton("Доб/Уд. Жесты", callback_data = '/add_comp_sen_'+str(video_id))
+        btns.append(btn)
+    if user[7]%10 == 1 and ((author_id == chat_id) or (user[7]//10 == 1)):
+        btn = types.InlineKeyboardButton("❌ Удалить", callback_data = '/del_video_sen_'+str(video_id))
+        btns.append(btn)
+    if len(btns):
+        markup.add(*btns)
+    """
+    btns = []
+    if BotDB.search_sign_video_fav(chat_id,video_id):
+        btn = types.InlineKeyboardButton("✔️ "+user[9], callback_data = '/signFoldCh_fav_f'+str(video_id))
+    else:
+        btn = types.InlineKeyboardButton("❌ "+user[9], callback_data = '/signFoldCh_fav_t'+str(video_id))
+    btns.append(btn)
+    if BotDB.search_sign_video_learn(chat_id,video_id):
+        btn = types.InlineKeyboardButton("✔️ "+user[10], callback_data = '/signFoldCh_learn_f'+str(video_id))
+    else:
+        btn = types.InlineKeyboardButton("❌ "+user[10], callback_data = '/signFoldCh_learn_t'+str(video_id))
+    btns.append(btn)
+    markup.row(*btns)
+    """
+    return markup,ver_num
+
 def form_sign_keyboard(chat_id,sign_id,video_id = 0):
     user = BotDB.get_user_by_user_id(chat_id)
     if sign_id == 0:
@@ -66,12 +180,14 @@ def form_sign_keyboard(chat_id,sign_id,video_id = 0):
     videos = BotDB.search_sign_videos(sign_id,chat_id)
     if video_id == 0:
         video_id = videos[0][0]
+        author_id = videos[0][3]
         ver_num = 1
     else:
         i = 1
         for v in videos:
             if video_id == v[0]:
                 ver_num = i
+                author_id = v[3]
             i += 1
     if len(videos) < 2:
         ver_num = 0
@@ -82,12 +198,12 @@ def form_sign_keyboard(chat_id,sign_id,video_id = 0):
 
     num = len(videos)
     if num>1:
-        num_of_rows = (num-1)/8+1
+        num_of_rows = (num-1)//8+1
         i=1
         for v in videos:
             btn = types.InlineKeyboardButton(str(i), callback_data = '/show_ver_sign_'+str(videos[i-1][0])+'_'+str(sign_id))
             btns.append(btn)
-            if (num_of_rows > 1) and (i%((num+num%2)/num_of_rows) == 0):
+            if (num_of_rows > 1) and (i%((num+num%2)//num_of_rows) == 0):
                 markup.row(*btns)
                 btns = []
             i += 1
@@ -97,16 +213,28 @@ def form_sign_keyboard(chat_id,sign_id,video_id = 0):
     categories = BotDB.get_cat_by_sign_id(sign_id)
     if len(categories):
         for cat in categories:
-            btn = types.InlineKeyboardButton(cat[1], callback_data = '/show_cat_f_1_'+str(cat[0]))
+            btn = types.InlineKeyboardButton(cat[1], callback_data = '/show_cat_signs_f_1_'+str(cat[0]))
             btns.append(btn)
-    if user[7]==1:
-        btn = types.InlineKeyboardButton("Изм.категорию", callback_data = '/change_sign_cat_f_1_'+str(sign_id))
-        btns.append(btn)
     if len(BotDB.search_sim_sign_videos(video_id,chat_id)):
         btn = types.InlineKeyboardButton("Похожие жесты", callback_data = '/show_sim_f_1_'+str(video_id))
         btns.append(btn)
-    if user[7]==1:
+    if len(BotDB.search_sens_by_comp_sign(video_id,chat_id)):
+        btn = types.InlineKeyboardButton("Предложения", callback_data = '/show_comp_sen_f_1_'+str(video_id))
+        btns.append(btn)
+    if user[7]%10 == 1 and ((len(categories) == 0) or (author_id == chat_id) or (user[7]//10 == 1)):
+        btn = types.InlineKeyboardButton("Изм.категорию", callback_data = '/change_sign_cat_f_1_'+str(sign_id))
+        btns.append(btn)
+    if user[7]%10 == 1:
+        btn = types.InlineKeyboardButton("+ Вариант", callback_data = '/add_sign_video_'+str(sign_id))
+        btns.append(btn)
+    if user[7]%10 == 1:
         btn = types.InlineKeyboardButton("Доб/Уд.похожие", callback_data = '/add_sim_sign_'+str(video_id))
+        btns.append(btn)
+    if user[7]%10 == 1:
+        btn = types.InlineKeyboardButton("Указ.предлож.", callback_data = '/add_comp_sign_'+str(video_id))
+        btns.append(btn)
+    if user[7]%10 == 1 and ((author_id == chat_id) or (user[7]//10 == 1)):
+        btn = types.InlineKeyboardButton("❌ Удалить", callback_data = '/del_video_sign_'+str(video_id))
         btns.append(btn)
     if len(btns):
         markup.add(*btns)
@@ -125,8 +253,9 @@ def form_sign_keyboard(chat_id,sign_id,video_id = 0):
     return markup,ver_num
 
 def form_list_msg_key(objects,pg_num,pg_attr,obj_ref = '/show_sign',pg_ref = '/search_pg',video_flag = 0):
-    objects.sort(key=lambda x: x[1])
-    objects.sort(key=lambda x: ord(x[1][0]) if x[1][0]!='Ё' else ord('Е')+0.5)
+    if not pg_ref.startswith('/show_comp_sign_pg'):
+        objects.sort(key=lambda x: x[1])
+        objects.sort(key=lambda x: ord(x[1][0]) if x[1][0]!='Ё' else ord('Е')+0.5)
 
     if obj_ref.startswith("/show_sign"):
         msg = '<b>'+form_text_num_signs(len(objects))+'</b>'
@@ -153,6 +282,8 @@ def form_list_msg_key(objects,pg_num,pg_attr,obj_ref = '/show_sign',pg_ref = '/s
             if pg_ref.startswith("/show_sim") and len(s[4]):
                 if s[4]=='антонимы':
                     msg += ' - Антонимы\n'
+                elif s[4]=='один жест - часть другого':
+                    msg += f' - Один жест входит в состав другого\n'
                 elif s[4]!='не знаю':
                     msg += f' - Отличаются по {s[4]}\n'
                 else:
@@ -163,7 +294,10 @@ def form_list_msg_key(objects,pg_num,pg_attr,obj_ref = '/show_sign',pg_ref = '/s
             msg += '\n'
         callback_str = obj_ref +"_" + str(s[0])
         if video_flag == 1:
-            callback_str += '_' + str(s[3])
+            if obj_ref.startswith("/show_sen"):
+                callback_str += '_' + str(s[2])
+            else:
+                callback_str += '_' + str(s[3])
         else:
             callback_str += '_0'
         btn = types.InlineKeyboardButton(str(s[1]), callback_data = callback_str)
@@ -191,20 +325,184 @@ def form_list_msg_key(objects,pg_num,pg_attr,obj_ref = '/show_sign',pg_ref = '/s
 def process_any_text(message):
     global isRunning
     if (isRunning==False) and (not message.text.startswith('/')):
+        search_ask_sign_name(message)
+        """
         chat_id = message.chat.id
         text = message.text
         signs = BotDB.search_signs(text,chat_id);
         msg, markup = form_list_msg_key(signs,1,text,obj_ref = '/show_sign',pg_ref = '/search_pg')
         bot.send_message(chat_id, msg, parse_mode = 'html', reply_markup = markup)
+        """
 
 @bot.message_handler(commands=["start"])
 def start(message):
-    print(message.text)
-    if message.text == "/start":
+    global isRunning
+    chat_id = message.chat.id
+    if not isRunning:
         if(not BotDB.user_exists(message.from_user.id)):
-            BotDB.add_user(message.from_user.id,message.from_user.username,message.from_user.first_name,message.from_user.last_name,1)
-        bot.send_message(message.chat.id, f"Привет, {message.from_user.first_name}!")
+            #BotDB.add_user(message.from_user.id,message.from_user.username,message.from_user.first_name,message.from_user.last_name,1)
+            isRunning = True
+            dialects = BotDB.get_dialects()
+            btns = []
+            for d in dialects:
+                btn = types.KeyboardButton(d[1])
+                btns.append(btn)
+            markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width = 2)
+            markup.add(*btns)
+            photo = open('RussiaMap.png', 'rb')
+            msg = bot.send_photo(chat_id, photo, 'Выберите город (диалект) или напишите его название', reply_markup = markup)
+            #msg = bot.send_message(chat_id, 'Выберите город (диалект) или напишите его название', reply_markup = markup)
+            bot.register_next_step_handler(msg, registration_ask_city)
+        else:
+            bot.send_message(message.chat.id, f"Привет, {message.from_user.first_name}!")
 
+@bot.message_handler(commands=["upd_user"])
+def start(message):
+    global isRunning
+    chat_id = message.chat.id
+    if not isRunning:
+        isRunning = True
+        dialects = BotDB.get_dialects()
+        btns = []
+        for d in dialects:
+            btn = types.KeyboardButton(d[1])
+            btns.append(btn)
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width = 2)
+        markup.add(*btns)
+        photo = open('RussiaMap.png', 'rb')
+        msg = bot.send_photo(chat_id, photo, 'Выберите город (диалект) или напишите его название', reply_markup = markup)
+        bot.register_next_step_handler(msg, registration_ask_city)
+
+def registration_ask_city(message):
+    global dialect_name
+    chat_id = message.chat.id
+    dialect_name = message.text
+    if not dialect_name:
+        msg = bot.send_message(chat_id, 'Текст пустой, отправьте ещё раз')
+        bot.register_next_step_handler(msg, registration_ask_city) #askSource
+        return
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width = 2)
+    markup.add(types.KeyboardButton('Приватные'),types.KeyboardButton('Публичные'))
+    msg = bot.send_message(chat_id, 'Выберите видимость ваших жестов <b>по умолчанию</b>. Если хотите, чтобы загружаемые вами жесты были видны только вам, '\
+       'то выберите "Приватные". Если хотите участвовать в создании общего словаря, то выберите "Публичные". При необходимости <b>каждому жесту '\
+       'можно указывать его личную видимость.</b>', parse_mode = 'html', reply_markup = markup)
+    bot.register_next_step_handler(msg, registration_ask_privacy)
+
+def registration_ask_privacy(message):
+    global isRunning
+    global dialect_name
+    chat_id = message.chat.id
+    privacy_type = message.text
+    if privacy_type == 'Приватные':
+        privacy = 1
+    elif privacy_type == 'Публичные':
+        privacy = 0
+    else:
+        msg = bot.send_message(chat_id, 'Выберите видимость ещё раз')
+        bot.register_next_step_handler(msg, registration_ask_privacy) #askSource
+        return
+    dialect = BotDB.search_dialect(dialect_name)
+    if bool(dialect):
+        dialect_id = dialect[0]
+    else:
+        dialect_id = BotDB.add_dialect(dialect_name)
+    if(not BotDB.user_exists(message.from_user.id)):
+        BotDB.add_user(message.from_user.id,message.from_user.username,message.from_user.first_name,message.from_user.last_name,dialect_id,privacy)
+        bot.send_message(message.chat.id, f"Привет, {message.from_user.first_name}! Спасибо за регистрацию!",reply_markup=types.ReplyKeyboardRemove())
+    else:
+        BotDB.upd_user_dial_priv(chat_id,dialect_id,privacy)
+        bot.send_message(message.chat.id, f"Данные пользователя изменены",reply_markup=types.ReplyKeyboardRemove())
+    isRunning = False
+    
+
+@bot.message_handler(commands=["upd_folders"])
+def upd_folders(message):
+    global isRunning
+    chat_id = message.chat.id
+    if not isRunning:
+        if(not BotDB.user_exists(message.from_user.id)):
+            #BotDB.add_user(message.from_user.id,message.from_user.username,message.from_user.first_name,message.from_user.last_name,1)
+            start(message)
+        else:
+            isRunning = True
+            markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width = 2)
+            markup.add(types.KeyboardButton('Мой словарь'),types.KeyboardButton('Изучаемое'))
+            markup.add(types.KeyboardButton('Любимые'),types.KeyboardButton('Избранное'))
+            msg = bot.send_message(chat_id, 'Выберите или напишите название 1-й папки с жестами', reply_markup = markup)
+            bot.register_next_step_handler(msg, upd_folders_ask_fav)
+
+def upd_folders_ask_fav(message):
+    chat_id = message.chat.id
+    fav_name = message.text
+    if not fav_name:
+        msg = bot.send_message(chat_id, 'Текст пустой, отправьте ещё раз')
+        bot.register_next_step_handler(msg, upd_folders_ask_fav) #askSource
+        return
+    BotDB.upd_user_fav(chat_id,fav_name)
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width = 2)
+    markup.add(types.KeyboardButton('Мой словарь'),types.KeyboardButton('Изучаемое'))
+    markup.add(types.KeyboardButton('Любимые'),types.KeyboardButton('Избранное'))
+    msg = bot.send_message(chat_id, 'Выберите или напишите название 2-й папки с жестами', reply_markup = markup)
+    bot.register_next_step_handler(msg, upd_folders_ask_learn)
+
+def upd_folders_ask_learn(message):
+    global isRunning
+    chat_id = message.chat.id
+    learn_name = message.text
+    if not learn_name:
+        msg = bot.send_message(chat_id, 'Текст пустой, отправьте ещё раз')
+        bot.register_next_step_handler(msg, upd_folders_ask_learn) #askSource
+        return
+    BotDB.upd_user_learn(chat_id,learn_name)
+    isRunning = False
+    bot.send_message(message.chat.id, f"Названия папок с жестами изменены",reply_markup=types.ReplyKeyboardRemove())
+
+@bot.message_handler(commands=["turn_mode"])
+def turn_user_mode(message):
+    chat_id = message.chat.id
+    user = BotDB.get_user_by_user_id(chat_id)
+    admin = user[7]
+    text = ''
+    if admin%10 == 1:
+        BotDB.upd_user_admin(chat_id,admin-1)
+        text = 'Включён режим просмотра'
+    elif admin%10 == 0:
+        BotDB.upd_user_admin(chat_id,admin+1)
+        text = 'Включён режим редактирования'
+    bot.send_message(chat_id, text)
+
+@bot.callback_query_handler(func=lambda c: re.findall("/del_video",c.data))
+def process_callback_del_video_sign(callback_query: types.CallbackQuery):
+    global isRunning
+    global delete_flag
+    global video_id
+    bot.answer_callback_query(callback_query.id)
+    chat_id = callback_query.from_user.id
+    if not isRunning:
+        chat_id = callback_query.from_user.id
+        delete_flag = re.split('_', callback_query.data)[2]
+        video_id = int(re.split('_', callback_query.data)[3])
+        isRunning = True
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width = 2)
+        markup.add(types.KeyboardButton('Удалить'),types.KeyboardButton('Отмена'))
+        msg = bot.send_message(chat_id, 'Подтвердите удаление видео', reply_markup = markup)
+        bot.register_next_step_handler(msg, del_video_ack)
+
+def del_video_ack(message):
+    global isRunning
+    global delete_flag
+    global video_id
+    chat_id = message.chat.id
+    text = message.text
+    if text == 'Удалить':
+        if delete_flag == 'sign':
+            BotDB.del_sign_video(video_id)
+        else:
+            BotDB.del_sen_video(video_id)
+        bot.send_message(chat_id, 'Видео удалено',reply_markup=types.ReplyKeyboardRemove())
+    else:
+        bot.send_message(chat_id, 'Удаление отменено',reply_markup=types.ReplyKeyboardRemove())
+    isRunning = False
 
 @bot.message_handler(is_owner=True, commands=["ping"])
 def cmd_ping_bot(message):
@@ -213,45 +511,37 @@ def cmd_ping_bot(message):
 
 @bot.message_handler(commands=['add_sign'])
 def add_sign_handler(message):
+    global files
     chat_id = message.chat.id
-    text = message.text
-    msg = bot.send_message(chat_id, 'Отправьте видео жеста')
+    bot.send_message(chat_id, 'Отправьте видео жеста')
+    global Sign_Sen_Flag
+    Sign_Sen_Flag = True
+    files = []
         #bot.register_next_step_handler(msg, ask_sign_video) #askSource
 
-@bot.message_handler(content_types=['video','animation','video_note'])
+@bot.message_handler(content_types=['document','video','animation','video_note'])
 def ask_sign_video(message):
     global isRunning
+    global Sign_Sen_Flag
     if not isRunning:
-        
         chat_id = message.chat.id
-        """
-        if not message.video:
-            msg = bot.send_message(chat_id, 'Жест должен быть в формате видео, отправьте ещё раз')
-            bot.register_next_step_handler(msg, ask_sign_video) #askSource
+
+        file_name, file_info = get_video_from_msg(message)
+        if file_info == None:
+            bot.send_message(chat_id, 'Неизвестный тип файла или он отсутствует')
             return
-        """
-        if message.video:
-            file_name = message.json['video']['file_name']
-            file_info = bot.get_file(message.video.file_id)
-            #bot.send_message(chat_id, 'Распознано video')
-        elif message.animation:
-            file_name = message.json['animation']['file_name']
-            file_info = bot.get_file(message.animation.file_id)
-            #bot.send_message(chat_id, 'Распознано animation')
-        elif message.video_note:
-            file_name = message.json['video_note']['file_id']
-            file_info = bot.get_file(message.video_note.file_id)
-            #bot.send_message(chat_id, 'Распознано video_note')
-        else:
-            bot.send_message(chat_id, 'Неизвестный тип файла')
         global file_content
         global files
         with open(file_name, "wb") as f:
             file_content = bot.download_file(file_info.file_path)
             f.write(file_content)
             files.append(file_content)
-        msg = bot.send_message(chat_id, 'Отправьте видео с другим вариантом жеста или напишите название жеста')
-        bot.register_next_step_handler(msg, add_ask_sign_name)
+        if Sign_Sen_Flag:
+            msg = bot.send_message(chat_id, 'Отправьте видео с другим вариантом жеста или напишите название жеста')
+            bot.register_next_step_handler(msg, add_ask_sign_name)
+        else:
+            msg = bot.send_message(chat_id, 'Отправьте видео с другим вариантом предложения или напишите текст предложения')
+            bot.register_next_step_handler(msg, add_ask_sen_name)
 
 def add_ask_sign_name(message):
     global sign_name
@@ -306,18 +596,66 @@ def add_ask_sign_part(message):
     !!!!!!!!!!!!!!!
     """
 
+@bot.message_handler(commands=['add_sen'])
+def add_sign_handler(message):
+    chat_id = message.chat.id
+    global Sign_Sen_Flag
+    Sign_Sen_Flag = False
+    global isRunning
+    if not isRunning:
+        sen_files = []
+        msg = bot.send_message(chat_id, 'Отправьте видео предложения на жестовом языке')
+        bot.register_next_step_handler(msg, ask_sign_video) #askSource
+
+def add_ask_sen_name(message):
+    chat_id = message.chat.id
+    global files
+    if message.video or message.animation or message.video_note:
+        #bot.register_next_step_handler(msg, add_ask_sign_name) #askSource
+        ask_sign_video(message)
+    else:
+        sen_name = message.text
+        if not sen_name:
+            msg = bot.send_message(chat_id, 'Текст пустой, отправьте ещё раз')
+            bot.register_next_step_handler(msg, add_ask_sign_name) #askSource
+            return
+        user = BotDB.get_user_by_user_id(chat_id)
+        privacy = user[8]
+        dialect = user[5]
+        sen_id = BotDB.add_sen(chat_id, dialect, sen_name, privacy, '')
+        if len(files):
+            for f in files:
+                video_id = BotDB.add_sen_video(chat_id, dialect, sen_id, f, privacy)
+        files = []
+        bot.send_message(chat_id, 'Спасибо за вклад, предложение "' + sen_name + '" добавлено)')
+
 @bot.message_handler(commands=['search_sign'])
 def search_handler(message):
     global isRunning
+    global Sign_Sen_search_Flag
     if not isRunning:
         isRunning = True
         chat_id = message.chat.id
         text = message.text
+        Sign_Sen_search_Flag = True
         msg = bot.send_message(chat_id, 'Напишите имя искомого жеста')
+        bot.register_next_step_handler(msg, search_ask_sign_name) #askSource
+
+@bot.message_handler(commands=['search_sen'])
+def search_handler(message):
+    global isRunning
+    global Sign_Sen_search_Flag
+    if not isRunning:
+        isRunning = True
+        chat_id = message.chat.id
+        text = message.text
+        Sign_Sen_search_Flag = False
+        msg = bot.send_message(chat_id, 'Напишите текст искомого предложения')
         bot.register_next_step_handler(msg, search_ask_sign_name) #askSource
 
 def search_ask_sign_name(message):
     global isRunning
+    global Sign_Sen_search_Flag
     chat_id = message.chat.id
     text = message.text
     if not text:
@@ -325,9 +663,12 @@ def search_ask_sign_name(message):
         bot.register_next_step_handler(msg, search_ask_sign_name) #askSource
         return
     
-    signs = BotDB.search_signs(text,chat_id);
-
-    msg, markup = form_list_msg_key(signs,1,text,obj_ref = '/show_sign',pg_ref = '/search_pg')
+    if Sign_Sen_search_Flag:
+        signs = BotDB.search_signs(text,chat_id);
+        msg, markup = form_list_msg_key(signs,1,text+'_t',obj_ref = '/show_sign',pg_ref = '/search_pg')
+    else:
+        sens = BotDB.search_sens(text,chat_id);
+        msg, markup = form_list_msg_key(sens,1,text+'_f',obj_ref = '/show_sen',pg_ref = '/search_pg')
 
     isRunning = False
     #markup.add(types.InlineKeyboardButton(":arrow_right:", url=""))
@@ -339,10 +680,14 @@ def process_callback_search_other_pg(callback_query: types.CallbackQuery):
     chat_id = callback_query.from_user.id
     pg_num = int(re.findall("\d+", callback_query.data)[0])
     text = re.split("_", callback_query.data)[3]
+    flag = re.split("_", callback_query.data)[4]
 
-    signs = BotDB.search_signs(text,chat_id);
- 
-    msg, markup = form_list_msg_key(signs,pg_num,text,obj_ref = '/show_sign',pg_ref = '/search_pg')
+    if flag == 't':
+        signs = BotDB.search_signs(text,chat_id);
+        msg, markup = form_list_msg_key(signs,pg_num,text+'_t',obj_ref = '/show_sign',pg_ref = '/search_pg')
+    else:
+        sens = BotDB.search_sens(text,chat_id);
+        msg, markup = form_list_msg_key(sens,pg_num,text+'_f',obj_ref = '/show_sen',pg_ref = '/search_pg')
 
     bot.edit_message_text(text = msg, chat_id = chat_id, message_id = callback_query.message.message_id, parse_mode = 'html', reply_markup = markup)
 
@@ -363,6 +708,54 @@ def process_callback_search_other_pg(callback_query: types.CallbackQuery):
         bot.send_message(chat_id, msg, parse_mode = 'html', reply_markup = markup)
     else:
         bot.edit_message_text(text = msg, chat_id = chat_id, message_id = callback_query.message.message_id, parse_mode = 'html', reply_markup = markup)
+
+@bot.callback_query_handler(func=lambda c: re.findall("/show_comp_",c.data))
+def process_callback_search_other_pg(callback_query: types.CallbackQuery):
+    bot.answer_callback_query(callback_query.id)
+    chat_id = callback_query.from_user.id
+    pg_num = int(re.split("_", callback_query.data)[4])
+    video_id = int(re.split("_", callback_query.data)[5])
+
+    if re.split("_", callback_query.data)[2] == 'sign':
+        signs = BotDB.search_comp_signs_by_sen(video_id,chat_id);
+        msg, markup = form_list_msg_key(signs,pg_num,video_id,obj_ref = '/show_sign',pg_ref = '/show_comp_sign_pg',video_flag = 1)
+        main_sen = BotDB.search_sen_by_video(video_id)
+        msg = f'Жесты, используемые в предложении: <b>"{main_sen[1]}"</b>\n' + msg
+    else:
+        sens = BotDB.search_sens_by_comp_sign(video_id,chat_id);
+        msg, markup = form_list_msg_key(sens,pg_num,video_id,obj_ref = '/show_sen',pg_ref = '/show_comp_sen_pg',video_flag = 1)
+        main_sign = BotDB.search_sign_by_video(video_id)
+        msg = f'Предложения, в которых используется жест <b>{main_sign[1]}</b> (<i>{main_sign[2]}</i>)\n' + msg
+    if re.split("_", callback_query.data)[3] == 'f':
+        bot.send_message(chat_id, msg, parse_mode = 'html', reply_markup = markup)
+    else:
+        bot.edit_message_text(text = msg, chat_id = chat_id, message_id = callback_query.message.message_id, parse_mode = 'html', reply_markup = markup)
+
+@bot.callback_query_handler(func=lambda c: re.findall("/show_sen",c.data))
+def process_callback_show_sign(callback_query: types.CallbackQuery):
+    bot.answer_callback_query(callback_query.id)
+    chat_id = callback_query.from_user.id
+    sen_id = int(re.split("_", callback_query.data)[2])
+    video_id = int(re.split("_", callback_query.data)[3])
+    if video_id == 0:
+        video = BotDB.search_sen_videos(sen_id, chat_id)[0]
+        video_id = video[0]
+    else:
+        video = BotDB.search_sen_video(video_id, chat_id)
+    sen = BotDB.search_sen(sen_id,chat_id);
+    """
+    msg = f'<b>{sign[1]}</b> (<i>{sign[2]}</i>)'
+    if sign[2]:
+        msg += f', 1 вариант'
+    msg += f'\n{sign[3]}'
+    """
+    #videonote = open('VideoNoteTest.mp4', 'rb')
+    #bot.send_video(chat_id, sign[3])
+    
+    markup,ver_num = form_sen_keyboard(chat_id,sen_id,video_id)
+    msg = form_sen_text(sen,ver_num)
+    #bot.send_message(chat_id, msg, parse_mode = 'html', reply_markup=markup)
+    bot.send_video(chat_id, video[2], caption = msg, parse_mode = 'html', reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda c: re.findall("/show_sign",c.data))
 def process_callback_show_sign(callback_query: types.CallbackQuery):
@@ -391,7 +784,7 @@ def process_callback_show_sign(callback_query: types.CallbackQuery):
     bot.send_video(chat_id, video[2], caption = msg, parse_mode = 'html', reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda c: re.findall("/show_ver_sign_",c.data))
-def process_callback_change_sign_cat(callback_query: types.CallbackQuery):
+def process_callback_show_ver_sign(callback_query: types.CallbackQuery):
     bot.answer_callback_query(callback_query.id)
     chat_id = callback_query.from_user.id
 
@@ -400,25 +793,26 @@ def process_callback_change_sign_cat(callback_query: types.CallbackQuery):
 
     sign = BotDB.search_sign(sign_id, chat_id)
     sign_video = BotDB.search_sign_video(video_id, chat_id)
-    """
-    msg = callback_query.message.caption
-    sign_name = re.split(' ', msg)
-    sign_part = re.findall('\(.*\)', msg)
-    sign_descript = re.findall('\n.*', msg)
-    msg = ''
-    if len(sign_name):
-        msg += f'<b>{sign_name[0]}</b>'
-    if len(sign_part):
-        msg += f' <i>{sign_part[0]}</i>'
-    msg += f', {ver_num} вариант'
-    if len(sign_descript):
-        msg += f'{sign_descript[0]}'
-    #msg = f'<b>{sign_name}</b> <i>{sign_part}</i>, {ver_num} вариант{sign_descript}'
-    markup = callback_query.message.reply_markup
-    """
+
     markup, ver_num = form_sign_keyboard(chat_id,sign_id,video_id)
     msg = form_sign_text(sign,ver_num)
     bot.edit_message_media(chat_id = chat_id, message_id = callback_query.message.message_id, media = types.InputMediaVideo(sign_video[2]))
+    bot.edit_message_caption(caption = msg, chat_id = chat_id, message_id = callback_query.message.message_id, parse_mode = 'html', reply_markup = markup)
+
+@bot.callback_query_handler(func=lambda c: re.findall("/show_ver_sen_",c.data))
+def process_callback_show_ver_sen(callback_query: types.CallbackQuery):
+    bot.answer_callback_query(callback_query.id)
+    chat_id = callback_query.from_user.id
+
+    video_id = int(re.split("_", callback_query.data)[3])
+    sen_id = int(re.split("_", callback_query.data)[4])
+
+    sen = BotDB.search_sen(sen_id, chat_id)
+    sen_video = BotDB.search_sen_video(video_id, chat_id)
+
+    markup, ver_num = form_sen_keyboard(chat_id,sen_id,video_id)
+    msg = form_sen_text(sen,ver_num)
+    bot.edit_message_media(chat_id = chat_id, message_id = callback_query.message.message_id, media = types.InputMediaVideo(sen_video[2]))
     bot.edit_message_caption(caption = msg, chat_id = chat_id, message_id = callback_query.message.message_id, parse_mode = 'html', reply_markup = markup)
 
 @bot.callback_query_handler(func=lambda c: re.findall("/signFoldCh",c.data))
@@ -547,28 +941,87 @@ def add_cat_with_name(message):
     isRunning = False
     bot.send_message(chat_id, 'Создана категория "' + text + '"', reply_markup=types.ReplyKeyboardRemove())
 
-@bot.message_handler(commands=['show_cats'])
-def show_cats_handler(message):
+@bot.message_handler(commands=['show_cats_sign'])
+def show_sign_cats_handler(message):
     chat_id = message.chat.id
 
-    cats = BotDB.search_all_cats();
+    cats = BotDB.search_all_cats_for_signs(chat_id);
 
-    msg, markup = form_list_msg_key(cats,1,'',obj_ref = '/show_cat_f_1',pg_ref = '/show_cats_pg')
+    msg, markup = form_list_msg_key(cats,1,'',obj_ref = '/show_cat_signs_f_1',pg_ref = '/show_cats_sign_pg')
 
     bot.send_message(chat_id, msg, parse_mode = 'html', reply_markup = markup)
 
-@bot.callback_query_handler(func=lambda c: re.findall("/show_cats_pg",c.data))
+@bot.callback_query_handler(func=lambda c: re.findall("/show_cats_sign_pg",c.data))
 def process_callback_show_cats_other_pg(callback_query: types.CallbackQuery):
     bot.answer_callback_query(callback_query.id)
     chat_id = callback_query.from_user.id
     pg_num = int(re.findall("\d+", callback_query.data)[0])
 
-    cats = BotDB.search_all_cats(chat_id);
+    cats = BotDB.search_all_cats_for_signs(chat_id);
 
-    msg, markup = form_list_msg_key(cats,pg_num,'',obj_ref = '/show_cat_f_1',pg_ref = '/show_cats_pg')
+    msg, markup = form_list_msg_key(cats,pg_num,'',obj_ref = '/show_cat_signs_f_1',pg_ref = '/show_cats_sign_pg')
+
+    bot.edit_message_text(text = msg, chat_id = chat_id, message_id = callback_query.message.message_id, parse_mode = 'html', reply_markup = markup)
+    
+@bot.callback_query_handler(func=lambda c: re.findall("/show_cat_signs_",c.data))
+def process_callback_show_cat_other_pg(callback_query: types.CallbackQuery):
+    bot.answer_callback_query(callback_query.id)
+    chat_id = callback_query.from_user.id
+    pg_num = int(re.split("_", callback_query.data)[4])
+    cat_id = int(re.split("_", callback_query.data)[5])
+
+    signs = BotDB.search_signs_in_cat(cat_id,chat_id);
+    category = BotDB.get_cat_by_cat_id(cat_id)
+
+    msg, markup = form_list_msg_key(signs,pg_num,cat_id,obj_ref = '/show_sign',pg_ref = '/show_cat_signs_pg')
+    msg = '<b>'+category[1]+'</b>\n'+msg
+
+    if re.split("_", callback_query.data)[3] == 'f':
+        bot.send_message(chat_id, msg, parse_mode = 'html', reply_markup = markup)
+    else:
+        bot.edit_message_text(text = msg, chat_id = chat_id, message_id = callback_query.message.message_id, parse_mode = 'html', reply_markup = markup)
+
+@bot.message_handler(commands=['show_cats_sen'])
+def show_sign_cats_handler(message):
+    chat_id = message.chat.id
+
+    cats = BotDB.search_all_cats_for_sens(chat_id);
+
+    msg, markup = form_list_msg_key(cats,1,'',obj_ref = '/show_cat_sens_f_1',pg_ref = '/show_cats_sen_pg')
+
+    bot.send_message(chat_id, msg, parse_mode = 'html', reply_markup = markup)
+
+@bot.callback_query_handler(func=lambda c: re.findall("/show_cats_sen_pg",c.data))
+def process_callback_show_cats_other_pg(callback_query: types.CallbackQuery):
+    bot.answer_callback_query(callback_query.id)
+    chat_id = callback_query.from_user.id
+    pg_num = int(re.findall("\d+", callback_query.data)[0])
+
+    cats = BotDB.search_all_cats_for_sens(chat_id);
+
+    msg, markup = form_list_msg_key(cats,pg_num,'',obj_ref = '/show_cat_sens_f_1',pg_ref = '/show_cats_sen_pg')
 
     bot.edit_message_text(text = msg, chat_id = chat_id, message_id = callback_query.message.message_id, parse_mode = 'html', reply_markup = markup)
 
+@bot.callback_query_handler(func=lambda c: re.findall("/show_cat_sens_",c.data))
+def process_callback_show_cat_other_pg(callback_query: types.CallbackQuery):
+    bot.answer_callback_query(callback_query.id)
+    chat_id = callback_query.from_user.id
+    pg_num = int(re.split("_", callback_query.data)[4])
+    cat_id = int(re.split("_", callback_query.data)[5])
+
+    signs = BotDB.search_sens_in_cat(cat_id,chat_id);
+    category = BotDB.get_cat_by_cat_id(cat_id)
+
+    msg, markup = form_list_msg_key(signs,pg_num,cat_id,obj_ref = '/show_sen',pg_ref = '/show_cat_sens_pg')
+    msg = '<b>'+category[1]+'</b>\n'+msg
+
+    if re.split("_", callback_query.data)[3] == 'f':
+        bot.send_message(chat_id, msg, parse_mode = 'html', reply_markup = markup)
+    else:
+        bot.edit_message_text(text = msg, chat_id = chat_id, message_id = callback_query.message.message_id, parse_mode = 'html', reply_markup = markup)
+
+    """
 @bot.callback_query_handler(func=lambda c: re.findall("/show_cat_",c.data))
 def process_callback_show_cat_other_pg(callback_query: types.CallbackQuery):
     bot.answer_callback_query(callback_query.id)
@@ -586,6 +1039,8 @@ def process_callback_show_cat_other_pg(callback_query: types.CallbackQuery):
         bot.send_message(chat_id, msg, parse_mode = 'html', reply_markup = markup)
     else:
         bot.edit_message_text(text = msg, chat_id = chat_id, message_id = callback_query.message.message_id, parse_mode = 'html', reply_markup = markup)
+    """
+
 
 @bot.callback_query_handler(func=lambda c: re.findall("/change_sign_cat_",c.data))
 def process_callback_change_sign_cat(callback_query: types.CallbackQuery):
@@ -605,7 +1060,7 @@ def process_callback_change_sign_cat(callback_query: types.CallbackQuery):
         bot.edit_message_text(text = msg, chat_id = chat_id, message_id = callback_query.message.message_id, parse_mode = 'html', reply_markup = markup)
 
 @bot.callback_query_handler(func=lambda c: re.findall("/ch_sign_cat_",c.data))
-def process_callback_change_sign_cat(callback_query: types.CallbackQuery):
+def process_callback_ch_sign_cat(callback_query: types.CallbackQuery):
     bot.answer_callback_query(callback_query.id)
     chat_id = callback_query.from_user.id
 
@@ -620,6 +1075,39 @@ def process_callback_change_sign_cat(callback_query: types.CallbackQuery):
         msg = 'Жест добавлен в категорию'
     bot.send_message(chat_id, msg, parse_mode = 'html')
 
+@bot.callback_query_handler(func=lambda c: re.findall("/change_sen_cat_",c.data))
+def process_callback_change_sign_cat(callback_query: types.CallbackQuery):
+    bot.answer_callback_query(callback_query.id)
+    chat_id = callback_query.from_user.id
+
+    pg_num = int(re.split("_", callback_query.data)[4])
+    sen_id = int(re.split("_", callback_query.data)[5])
+
+    cats = BotDB.search_all_cats();
+
+    msg, markup = form_list_msg_key(cats,pg_num,'',obj_ref = '/ch_sen_cat_'+str(sen_id),pg_ref = '/change_sen_cat_pg')
+
+    if re.split("_", callback_query.data)[3]=='f':
+        bot.send_message(chat_id, msg, parse_mode = 'html', reply_markup = markup)
+    else:
+        bot.edit_message_text(text = msg, chat_id = chat_id, message_id = callback_query.message.message_id, parse_mode = 'html', reply_markup = markup)
+
+@bot.callback_query_handler(func=lambda c: re.findall("/ch_sen_cat_",c.data))
+def process_callback_ch_sign_cat(callback_query: types.CallbackQuery):
+    bot.answer_callback_query(callback_query.id)
+    chat_id = callback_query.from_user.id
+
+    category_id = int(re.split("_", callback_query.data)[4])
+    sen_id = int(re.split("_", callback_query.data)[3])
+
+    if BotDB.check_sen_in_cat(sen_id,category_id):
+        BotDB.del_sen_cat(sen_id,category_id)
+        msg = 'Предложение удалено из категории'
+    else:
+        BotDB.add_sen_cat(sen_id, category_id)
+        msg = 'Предложение добавлено в категорию'
+    bot.send_message(chat_id, msg, parse_mode = 'html')
+
 @bot.callback_query_handler(func=lambda c: re.findall("/add_sim_sign_",c.data))
 def process_callback_add_sim_sign(callback_query: types.CallbackQuery):
     global sim_video_id
@@ -627,18 +1115,18 @@ def process_callback_add_sim_sign(callback_query: types.CallbackQuery):
     global isRunning
     #bot.answer_callback_query(callback_query.id)
     chat_id = callback_query.from_user.id
-    sign_id = int(re.findall("\d+", callback_query.data)[0])
+    video_id = int(re.findall("\d+", callback_query.data)[0])
     if sim_video_id == 0:
-        sim_video_id = sign_id
+        sim_video_id = video_id
         bot.answer_callback_query(
             callback_query.id,
             text='Теперь нажмите такую же кнопку на втором (похожем) жесте', show_alert=False)
-    elif sign_id == sim_video_id:
+    elif video_id == sim_video_id:
         bot.answer_callback_query(
             callback_query.id,
             text='Вы уже выбрали этот жест. Теперь выберите второй', show_alert=False)
     else:
-        sim_video2_id = sign_id
+        sim_video2_id = video_id
         if BotDB.check_sim_sign_videos(sim_video_id,sim_video2_id):
             BotDB.del_sim_signs(sim_video_id,sim_video2_id)
             bot.answer_callback_query(
@@ -651,6 +1139,7 @@ def process_callback_add_sim_sign(callback_query: types.CallbackQuery):
             markup.add(types.KeyboardButton('траектории'),types.KeyboardButton('количеству повторов'))
             markup.add(types.KeyboardButton('месту исполнения'),types.KeyboardButton('конфигурации'))
             markup.add(types.KeyboardButton('антонимы'),types.KeyboardButton('не знаю'))
+            markup.add(types.KeyboardButton('один жест - часть другого'))
             msg = bot.send_message(chat_id, 'Выбранные жесты отличаются по ...?', reply_markup = markup)
             isRunning = True
             bot.register_next_step_handler(msg, add_sim_sign_after_ask)
@@ -671,6 +1160,103 @@ def add_sim_sign_after_ask(message):
     isRunning = False
     bot.send_message(chat_id, 'Связь между жестами сохранена', reply_markup=types.ReplyKeyboardRemove())
 
+@bot.callback_query_handler(func=lambda c: re.findall("/add_comp_",c.data))
+def process_callback_add_sim_sign(callback_query: types.CallbackQuery):
+    global comp_video_id
+    global comp_sen_video_id
+    #bot.answer_callback_query(callback_query.id)
+    chat_id = callback_query.from_user.id
+    video_id = int(re.findall("\d+", callback_query.data)[0])
+    who = re.split('_', callback_query.data)[2]
+    if who == 'sign':
+        comp_video_id = video_id
+    elif who == 'sen':
+        comp_sen_video_id = video_id
+    if comp_video_id != 0 and comp_sen_video_id == 0:
+        bot.answer_callback_query(
+            callback_query.id,
+            text='Теперь нажмите кнопку "Доб/Уд. Жесты" на предложении', show_alert=False)
+    elif comp_video_id == 0 and comp_sen_video_id != 0:
+        bot.answer_callback_query(
+            callback_query.id,
+            text='Теперь нажмите кнопку "Указ.предлож." на жесте', show_alert=False)
+    elif comp_video_id != 0 and comp_sen_video_id != 0:
+        if BotDB.check_comp_sign_video(comp_video_id,comp_sen_video_id):
+            BotDB.del_comp_sign(comp_video_id,comp_sen_video_id)
+            bot.answer_callback_query(
+                callback_query.id,
+                text='Связь между предложением и жестом удалена', show_alert=False)
+        else:
+            bot.answer_callback_query(callback_query.id)
+            BotDB.add_comp_sign(comp_video_id, comp_sen_video_id)
+            bot.send_message(chat_id, 'Связь между предложением и жестом сохранена', reply_markup=types.ReplyKeyboardRemove())
+        comp_video_id = 0
+        comp_sen_video_id = 0
+
+@bot.callback_query_handler(func=lambda c: re.findall("/add_sign_video",c.data))
+def process_callback_add_sign_video(callback_query: types.CallbackQuery):
+    global isRunning
+    global sign_id
+    bot.answer_callback_query(callback_query.id)
+    if not isRunning:
+        chat_id = callback_query.from_user.id
+        sign_id = int(re.findall("\d+", callback_query.data)[0])
+        msg = bot.send_message(chat_id, 'Отправьте видео со своим вариантом выбранного жеста')
+        isRunning = True
+        bot.register_next_step_handler(msg, add_sign_video_for_sign)
         
+def add_sign_video_for_sign(message):
+    global sign_id
+    global isRunning
+    chat_id = message.chat.id
+
+    file_name, file_info = get_video_from_msg(message)
+    if file_info == None:
+        msg = bot.send_message(chat_id, 'Видео не обнаружено, отправьте ещё раз')
+        bot.register_next_step_handler(msg, add_sign_video_for_sign) #askSource
+        return
+
+    with open(file_name, "wb") as f:
+        file_content = bot.download_file(file_info.file_path)
+        f.write(file_content)
+        files.append(file_content)
+    user = BotDB.get_user_by_user_id(chat_id)
+    BotDB.add_sign_video(chat_id, user[5], sign_id, file_content, user[8])
+
+    isRunning = False
+    bot.send_message(chat_id, 'Ваш вариант жеста добавлен')
+
+@bot.callback_query_handler(func=lambda c: re.findall("/add_sen_video",c.data))
+def process_callback_add_sen_video(callback_query: types.CallbackQuery):
+    global isRunning
+    global sen_id
+    bot.answer_callback_query(callback_query.id)
+    if not isRunning:
+        chat_id = callback_query.from_user.id
+        sen_id = int(re.findall("\d+", callback_query.data)[0])
+        msg = bot.send_message(chat_id, 'Отправьте видео со своим вариантом выбранного предложения')
+        isRunning = True
+        bot.register_next_step_handler(msg, add_sen_video_for_sen)
+        
+def add_sen_video_for_sen(message):
+    global sen_id
+    global isRunning
+    chat_id = message.chat.id
+
+    file_name, file_info = get_video_from_msg(message)
+    if file_info == None:
+        msg = bot.send_message(chat_id, 'Видео не обнаружено, отправьте ещё раз')
+        bot.register_next_step_handler(msg, add_sen_video_for_sen) #askSource
+        return
+
+    with open(file_name, "wb") as f:
+        file_content = bot.download_file(file_info.file_path)
+        f.write(file_content)
+        files.append(file_content)
+    user = BotDB.get_user_by_user_id(chat_id)
+    BotDB.add_sen_video(chat_id, user[5], sen_id, file_content, user[8])
+
+    isRunning = False
+    bot.send_message(chat_id, 'Ваш вариант предложения добавлен')
 
 bot.polling(none_stop=True)
