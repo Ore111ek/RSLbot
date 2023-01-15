@@ -22,8 +22,8 @@ class BotDB:
     
     def __init__(self, db_file):
         """Инициализация соединения с БД"""
-        self.conn = sqlite3.connect(db_file, check_same_thread=False)
-
+        self.conn = sqlite3.connect(db_file, check_same_thread=False, timeout = 60)
+       
         self.conn.create_collation("NOCASE", ignore_case_collation)
         self.conn.create_function("LOWER", 1, sqlite_lower)
         self.conn.create_function("UPPER", 1, sqlite_upper)

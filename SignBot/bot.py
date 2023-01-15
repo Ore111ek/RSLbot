@@ -8,17 +8,21 @@ BotDB = BotDB('RSLbot.db')
 bot = telebot.TeleBot('5661572549:AAGDgWFtN-b-p-0aj4Vljs0Tbl353HWjFP8')
 ADMIN_id = 923048680
 
-isRunning = 0
-#isRunningSearch = 0
-#isRunningAddCat = 0
-sim_video_id = 0
-sim_video2_id = 0
-comp_video_id = 0
-comp_sen_video_id = 0
-files = []
-Sign_Sen_Flag = True
-Sign_Sen_search_Flag = True
-#sen_files = []
+isRunning = {}
+sim_video_id = {}
+sim_video2_id = {}
+comp_video_id = {}
+comp_sen_video_id = {}
+files = {}
+Sign_Sen_Flag = {}
+Sign_Sen_search_Flag = {}
+
+dialect_name = {}
+sign_name = {}
+video_id = {}
+sign_id = {}
+sen_id = {}
+delete_flag = {}
 
 def form_text_num_signs(num):
     text = 'Найден ' if num==1 else 'Найдено '
@@ -324,24 +328,19 @@ def form_list_msg_key(objects,pg_num,pg_attr,obj_ref = '/show_sign',pg_ref = '/s
 @bot.message_handler(func = lambda msg: not msg.text.startswith('/'), content_types=['text'])
 def process_any_text(message):
     global isRunning
-    if (isRunning==False) and (not message.text.startswith('/')):
+    chat_id = message.chat.id
+    if chat_id not in isRunning or isRunning[chat_id] == False:
+    #if (isRunning==False):
         search_ask_sign_name(message)
-        """
-        chat_id = message.chat.id
-        text = message.text
-        signs = BotDB.search_signs(text,chat_id);
-        msg, markup = form_list_msg_key(signs,1,text,obj_ref = '/show_sign',pg_ref = '/search_pg')
-        bot.send_message(chat_id, msg, parse_mode = 'html', reply_markup = markup)
-        """
 
 @bot.message_handler(commands=["start"])
 def start(message):
     global isRunning
     chat_id = message.chat.id
-    if not isRunning:
+    if chat_id not in isRunning or isRunning[chat_id] == False:
         if(not BotDB.user_exists(message.from_user.id)):
             #BotDB.add_user(message.from_user.id,message.from_user.username,message.from_user.first_name,message.from_user.last_name,1)
-            isRunning = True
+            isRunning[chat_id] = True
             dialects = BotDB.get_dialects()
             btns = []
             for d in dialects:
@@ -360,8 +359,8 @@ def start(message):
 def start(message):
     global isRunning
     chat_id = message.chat.id
-    if not isRunning:
-        isRunning = True
+    if chat_id not in isRunning or isRunning[chat_id] == False:
+        isRunning[chat_id] = True
         dialects = BotDB.get_dialects()
         btns = []
         for d in dialects:
@@ -376,8 +375,8 @@ def start(message):
 def registration_ask_city(message):
     global dialect_name
     chat_id = message.chat.id
-    dialect_name = message.text
-    if not dialect_name:
+    dialect_name[chat_id] = message.text
+    if not dialect_name[chat_id]:
         msg = bot.send_message(chat_id, 'Текст пустой, отправьте ещё раз')
         bot.register_next_step_handler(msg, registration_ask_city) #askSource
         return
@@ -401,30 +400,30 @@ def registration_ask_privacy(message):
         msg = bot.send_message(chat_id, 'Выберите видимость ещё раз')
         bot.register_next_step_handler(msg, registration_ask_privacy) #askSource
         return
-    dialect = BotDB.search_dialect(dialect_name)
+    dialect = BotDB.search_dialect(dialect_name[chat_id])
     if bool(dialect):
         dialect_id = dialect[0]
     else:
-        dialect_id = BotDB.add_dialect(dialect_name)
+        dialect_id = BotDB.add_dialect(dialect_name[chat_id])
     if(not BotDB.user_exists(message.from_user.id)):
         BotDB.add_user(message.from_user.id,message.from_user.username,message.from_user.first_name,message.from_user.last_name,dialect_id,privacy)
         bot.send_message(message.chat.id, f"Привет, {message.from_user.first_name}! Спасибо за регистрацию!",reply_markup=types.ReplyKeyboardRemove())
     else:
         BotDB.upd_user_dial_priv(chat_id,dialect_id,privacy)
         bot.send_message(message.chat.id, f"Данные пользователя изменены",reply_markup=types.ReplyKeyboardRemove())
-    isRunning = False
+    isRunning[chat_id] = False
     
 
 @bot.message_handler(commands=["upd_folders"])
 def upd_folders(message):
     global isRunning
     chat_id = message.chat.id
-    if not isRunning:
+    if chat_id not in isRunning or isRunning[chat_id] == False:
         if(not BotDB.user_exists(message.from_user.id)):
             #BotDB.add_user(message.from_user.id,message.from_user.username,message.from_user.first_name,message.from_user.last_name,1)
             start(message)
         else:
-            isRunning = True
+            isRunning[chat_id] = True
             markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width = 2)
             markup.add(types.KeyboardButton('Мой словарь'),types.KeyboardButton('Изучаемое'))
             markup.add(types.KeyboardButton('Любимые'),types.KeyboardButton('Избранное'))
@@ -454,7 +453,7 @@ def upd_folders_ask_learn(message):
         bot.register_next_step_handler(msg, upd_folders_ask_learn) #askSource
         return
     BotDB.upd_user_learn(chat_id,learn_name)
-    isRunning = False
+    isRunning[chat_id] = False
     bot.send_message(message.chat.id, f"Названия папок с жестами изменены",reply_markup=types.ReplyKeyboardRemove())
 
 @bot.message_handler(commands=["turn_mode"])
@@ -478,11 +477,11 @@ def process_callback_del_video_sign(callback_query: types.CallbackQuery):
     global video_id
     bot.answer_callback_query(callback_query.id)
     chat_id = callback_query.from_user.id
-    if not isRunning:
+    if chat_id not in isRunning or isRunning[chat_id] == False:
         chat_id = callback_query.from_user.id
-        delete_flag = re.split('_', callback_query.data)[2]
-        video_id = int(re.split('_', callback_query.data)[3])
-        isRunning = True
+        delete_flag[chat_id] = re.split('_', callback_query.data)[2]
+        video_id[chat_id] = int(re.split('_', callback_query.data)[3])
+        isRunning[chat_id] = True
         markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width = 2)
         markup.add(types.KeyboardButton('Удалить'),types.KeyboardButton('Отмена'))
         msg = bot.send_message(chat_id, 'Подтвердите удаление видео', reply_markup = markup)
@@ -495,14 +494,14 @@ def del_video_ack(message):
     chat_id = message.chat.id
     text = message.text
     if text == 'Удалить':
-        if delete_flag == 'sign':
-            BotDB.del_sign_video(video_id)
+        if chat_id not in delete_flag or delete_flag[chat_id] == 'sign':
+            BotDB.del_sign_video(video_id[chat_id])
         else:
-            BotDB.del_sen_video(video_id)
+            BotDB.del_sen_video(video_id[chat_id])
         bot.send_message(chat_id, 'Видео удалено',reply_markup=types.ReplyKeyboardRemove())
     else:
         bot.send_message(chat_id, 'Удаление отменено',reply_markup=types.ReplyKeyboardRemove())
-    isRunning = False
+    isRunning[chat_id] = False
 
 @bot.message_handler(is_owner=True, commands=["ping"])
 def cmd_ping_bot(message):
@@ -511,32 +510,33 @@ def cmd_ping_bot(message):
 
 @bot.message_handler(commands=['add_sign'])
 def add_sign_handler(message):
-    global files
+    #global files
     chat_id = message.chat.id
     bot.send_message(chat_id, 'Отправьте видео жеста')
     global Sign_Sen_Flag
-    Sign_Sen_Flag = True
-    files = []
+    Sign_Sen_Flag[chat_id] = True
+    #files = []
         #bot.register_next_step_handler(msg, ask_sign_video) #askSource
 
 @bot.message_handler(content_types=['document','video','animation','video_note'])
 def ask_sign_video(message):
     global isRunning
     global Sign_Sen_Flag
-    if not isRunning:
-        chat_id = message.chat.id
-
+    chat_id = message.chat.id
+    if chat_id not in isRunning or isRunning[chat_id] == False:
         file_name, file_info = get_video_from_msg(message)
         if file_info == None:
             bot.send_message(chat_id, 'Неизвестный тип файла или он отсутствует')
             return
-        global file_content
+        #global file_content
         global files
         with open(file_name, "wb") as f:
             file_content = bot.download_file(file_info.file_path)
             f.write(file_content)
-            files.append(file_content)
-        if Sign_Sen_Flag:
+            if chat_id not in files:
+                files[chat_id] = []
+            files[chat_id].append(file_content)
+        if chat_id not in Sign_Sen_Flag or Sign_Sen_Flag[chat_id] == True:
             msg = bot.send_message(chat_id, 'Отправьте видео с другим вариантом жеста или напишите название жеста')
             bot.register_next_step_handler(msg, add_ask_sign_name)
         else:
@@ -551,13 +551,13 @@ def add_ask_sign_name(message):
         #bot.register_next_step_handler(msg, add_ask_sign_name) #askSource
         ask_sign_video(message)
     else:
-        sign_name = message.text
-        if not sign_name:
+        sign_name[chat_id] = message.text
+        if not sign_name[chat_id]:
             msg = bot.send_message(chat_id, 'Текст пустой, отправьте ещё раз')
             bot.register_next_step_handler(msg, add_ask_sign_name) #askSource
             return
         global isRunning
-        isRunning = True
+        isRunning[chat_id] = True
         markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width = 2)
         markup.add(types.KeyboardButton('Существительное'),types.KeyboardButton('Глагол'))
         markup.add(types.KeyboardButton('Наречие'),types.KeyboardButton('Прилагательное'))
@@ -566,6 +566,7 @@ def add_ask_sign_name(message):
 
 def add_ask_sign_part(message):
     global isRunning
+    global sign_name
     global files
     chat_id = message.chat.id
     text = message.text
@@ -576,13 +577,13 @@ def add_ask_sign_part(message):
     user = BotDB.get_user_by_user_id(chat_id)
     privacy = user[8]
     dialect = user[5]
-    sign_id = BotDB.add_sign(chat_id,dialect,sign_name,text,"",None,privacy)
+    sign_id = BotDB.add_sign(chat_id,dialect,sign_name[chat_id],text,"",None,privacy)
     #sign = BotDB.search_sign_by_name_auth(sign_name, text, chat_id)
-    if len(files):
-        for f in files:
+    if len(files[chat_id]):
+        for f in files[chat_id]:
             video_id = BotDB.add_sign_video(chat_id, dialect, sign_id, f, privacy)
-    files = []
-    isRunning = False
+    del files[chat_id]
+    isRunning[chat_id] = False
     bot.send_message(chat_id, 'Спасибо за вклад, жест "' + sign_name + '" добавлен)', reply_markup=types.ReplyKeyboardRemove())
     """
     ВЫЗЫВАТЬ ФУНКЦИЮ ДЛЯ ПОКАЗА ДОБАВЛЕННОГО ЖЕСТА ПО ПОСЛЕДНЕМУ video_id!!!!!!!!!!!!!!
@@ -600,10 +601,9 @@ def add_ask_sign_part(message):
 def add_sign_handler(message):
     chat_id = message.chat.id
     global Sign_Sen_Flag
-    Sign_Sen_Flag = False
+    Sign_Sen_Flag[chat_id] = False
     global isRunning
-    if not isRunning:
-        sen_files = []
+    if chat_id not in isRunning or isRunning[chat_id] == False:
         msg = bot.send_message(chat_id, 'Отправьте видео предложения на жестовом языке')
         bot.register_next_step_handler(msg, ask_sign_video) #askSource
 
@@ -623,21 +623,21 @@ def add_ask_sen_name(message):
         privacy = user[8]
         dialect = user[5]
         sen_id = BotDB.add_sen(chat_id, dialect, sen_name, privacy, '')
-        if len(files):
-            for f in files:
+        if len(files[chat_id]):
+            for f in files[chat_id]:
                 video_id = BotDB.add_sen_video(chat_id, dialect, sen_id, f, privacy)
-        files = []
+        del files[chat_id]
         bot.send_message(chat_id, 'Спасибо за вклад, предложение "' + sen_name + '" добавлено)')
 
 @bot.message_handler(commands=['search_sign'])
 def search_handler(message):
     global isRunning
     global Sign_Sen_search_Flag
-    if not isRunning:
-        isRunning = True
-        chat_id = message.chat.id
+    chat_id = message.chat.id
+    if chat_id not in isRunning or isRunning[chat_id] == False:
+        isRunning[chat_id] = True
         text = message.text
-        Sign_Sen_search_Flag = True
+        Sign_Sen_search_Flag[chat_id] = True
         msg = bot.send_message(chat_id, 'Напишите имя искомого жеста')
         bot.register_next_step_handler(msg, search_ask_sign_name) #askSource
 
@@ -645,11 +645,11 @@ def search_handler(message):
 def search_handler(message):
     global isRunning
     global Sign_Sen_search_Flag
-    if not isRunning:
-        isRunning = True
-        chat_id = message.chat.id
+    chat_id = message.chat.id
+    if chat_id not in isRunning or isRunning[chat_id] == False:
+        isRunning[chat_id] = True
         text = message.text
-        Sign_Sen_search_Flag = False
+        Sign_Sen_search_Flag[chat_id] = False
         msg = bot.send_message(chat_id, 'Напишите текст искомого предложения')
         bot.register_next_step_handler(msg, search_ask_sign_name) #askSource
 
@@ -663,14 +663,14 @@ def search_ask_sign_name(message):
         bot.register_next_step_handler(msg, search_ask_sign_name) #askSource
         return
     
-    if Sign_Sen_search_Flag:
+    if chat_id not in Sign_Sen_search_Flag or Sign_Sen_search_Flag[chat_id] == True:
         signs = BotDB.search_signs(text,chat_id);
         msg, markup = form_list_msg_key(signs,1,text+'_t',obj_ref = '/show_sign',pg_ref = '/search_pg')
     else:
         sens = BotDB.search_sens(text,chat_id);
         msg, markup = form_list_msg_key(sens,1,text+'_f',obj_ref = '/show_sen',pg_ref = '/search_pg')
 
-    isRunning = False
+    isRunning[chat_id] = False
     #markup.add(types.InlineKeyboardButton(":arrow_right:", url=""))
     bot.send_message(chat_id, msg, parse_mode = 'html', reply_markup = markup)
 
@@ -923,9 +923,9 @@ def process_callback_search_other_pg_learn(callback_query: types.CallbackQuery):
 @bot.message_handler(commands=['add_cat'])
 def add_cat_ask_name(message):
     global isRunning
-    if not isRunning:
-        isRunning = True
-        chat_id = message.chat.id
+    chat_id = message.chat.id
+    if chat_id not in isRunning or isRunning[chat_id] == False:
+        isRunning[chat_id] = True
         msg = bot.send_message(chat_id, 'Напишите название категории')
         bot.register_next_step_handler(msg, add_cat_with_name)
 
@@ -938,7 +938,7 @@ def add_cat_with_name(message):
         bot.register_next_step_handler(msg, add_cat_with_name) #askSource
         return
     BotDB.add_cat(text,"")
-    isRunning = False
+    isRunning[chat_id] = False
     bot.send_message(chat_id, 'Создана категория "' + text + '"', reply_markup=types.ReplyKeyboardRemove())
 
 @bot.message_handler(commands=['show_cats_sign'])
@@ -1116,22 +1116,24 @@ def process_callback_add_sim_sign(callback_query: types.CallbackQuery):
     #bot.answer_callback_query(callback_query.id)
     chat_id = callback_query.from_user.id
     video_id = int(re.findall("\d+", callback_query.data)[0])
-    if sim_video_id == 0:
-        sim_video_id = video_id
+    if chat_id not in sim_video_id or sim_video_id[chat_id] == 0:
+        sim_video_id[chat_id] = video_id
         bot.answer_callback_query(
             callback_query.id,
             text='Теперь нажмите такую же кнопку на втором (похожем) жесте', show_alert=False)
-    elif video_id == sim_video_id:
+    elif video_id == sim_video_id[chat_id]:
         bot.answer_callback_query(
             callback_query.id,
             text='Вы уже выбрали этот жест. Теперь выберите второй', show_alert=False)
     else:
-        sim_video2_id = video_id
-        if BotDB.check_sim_sign_videos(sim_video_id,sim_video2_id):
-            BotDB.del_sim_signs(sim_video_id,sim_video2_id)
+        sim_video2_id[chat_id] = video_id
+        if BotDB.check_sim_sign_videos(sim_video_id[chat_id],sim_video2_id[chat_id]):
+            BotDB.del_sim_signs(sim_video_id[chat_id],sim_video2_id[chat_id])
             bot.answer_callback_query(
                 callback_query.id,
                 text='Связь между выбранными жестами удалена', show_alert=False)
+            del sim_video_id[chat_id]
+            del sim_video2_id[chat_id]
         else:
             bot.answer_callback_query(callback_query.id)
             markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width = 2)
@@ -1141,7 +1143,7 @@ def process_callback_add_sim_sign(callback_query: types.CallbackQuery):
             markup.add(types.KeyboardButton('антонимы'),types.KeyboardButton('не знаю'))
             markup.add(types.KeyboardButton('один жест - часть другого'))
             msg = bot.send_message(chat_id, 'Выбранные жесты отличаются по ...?', reply_markup = markup)
-            isRunning = True
+            isRunning[chat_id] = True
             bot.register_next_step_handler(msg, add_sim_sign_after_ask)
 
 def add_sim_sign_after_ask(message):
@@ -1154,10 +1156,10 @@ def add_sim_sign_after_ask(message):
         msg = bot.send_message(chat_id, 'Текст пустой, отправьте ещё раз')
         bot.register_next_step_handler(msg, add_sim_sign_after_ask) #askSource
         return
-    BotDB.add_sim_signs(sim_video_id, sim_video2_id, text)
-    sim_video_id = 0
-    sim_video2_id = 0
-    isRunning = False
+    BotDB.add_sim_signs(sim_video_id[chat_id], sim_video2_id[chat_id], text)
+    del sim_video_id[chat_id]
+    del sim_video2_id[chat_id]
+    isRunning[chat_id] = False
     bot.send_message(chat_id, 'Связь между жестами сохранена', reply_markup=types.ReplyKeyboardRemove())
 
 @bot.callback_query_handler(func=lambda c: re.findall("/add_comp_",c.data))
@@ -1169,40 +1171,40 @@ def process_callback_add_sim_sign(callback_query: types.CallbackQuery):
     video_id = int(re.findall("\d+", callback_query.data)[0])
     who = re.split('_', callback_query.data)[2]
     if who == 'sign':
-        comp_video_id = video_id
+        comp_video_id[chat_id] = video_id
     elif who == 'sen':
-        comp_sen_video_id = video_id
-    if comp_video_id != 0 and comp_sen_video_id == 0:
+        comp_sen_video_id[chat_id] = video_id
+    if (chat_id in comp_video_id and comp_video_id[chat_id] != 0) and (chat_id not in comp_sen_video_id or comp_sen_video_id[chat_id] == 0):
         bot.answer_callback_query(
             callback_query.id,
             text='Теперь нажмите кнопку "Доб/Уд. Жесты" на предложении', show_alert=False)
-    elif comp_video_id == 0 and comp_sen_video_id != 0:
+    elif (chat_id not in comp_video_id and comp_video_id[chat_id] == 0) and (chat_id in comp_sen_video_id or comp_sen_video_id[chat_id] != 0):
         bot.answer_callback_query(
             callback_query.id,
             text='Теперь нажмите кнопку "Указ.предлож." на жесте', show_alert=False)
-    elif comp_video_id != 0 and comp_sen_video_id != 0:
-        if BotDB.check_comp_sign_video(comp_video_id,comp_sen_video_id):
-            BotDB.del_comp_sign(comp_video_id,comp_sen_video_id)
+    elif (chat_id in comp_video_id and comp_video_id[chat_id] != 0) and (chat_id in comp_sen_video_id or comp_sen_video_id[chat_id] != 0):
+        if BotDB.check_comp_sign_video(comp_video_id[chat_id],comp_sen_video_id[chat_id]):
+            BotDB.del_comp_sign(comp_video_id[chat_id],comp_sen_video_id[chat_id])
             bot.answer_callback_query(
                 callback_query.id,
                 text='Связь между предложением и жестом удалена', show_alert=False)
         else:
             bot.answer_callback_query(callback_query.id)
-            BotDB.add_comp_sign(comp_video_id, comp_sen_video_id)
+            BotDB.add_comp_sign(comp_video_id[chat_id], comp_sen_video_id[chat_id])
             bot.send_message(chat_id, 'Связь между предложением и жестом сохранена', reply_markup=types.ReplyKeyboardRemove())
-        comp_video_id = 0
-        comp_sen_video_id = 0
+        del comp_video_id[chat_id]
+        del comp_sen_video_id[chat_id]
 
 @bot.callback_query_handler(func=lambda c: re.findall("/add_sign_video",c.data))
 def process_callback_add_sign_video(callback_query: types.CallbackQuery):
     global isRunning
     global sign_id
     bot.answer_callback_query(callback_query.id)
-    if not isRunning:
-        chat_id = callback_query.from_user.id
-        sign_id = int(re.findall("\d+", callback_query.data)[0])
+    chat_id = callback_query.from_user.id
+    if chat_id not in isRunning or isRunning[chat_id] == False:
+        sign_id[chat_id] = int(re.findall("\d+", callback_query.data)[0])
         msg = bot.send_message(chat_id, 'Отправьте видео со своим вариантом выбранного жеста')
-        isRunning = True
+        isRunning[chat_id] = True
         bot.register_next_step_handler(msg, add_sign_video_for_sign)
         
 def add_sign_video_for_sign(message):
@@ -1219,11 +1221,13 @@ def add_sign_video_for_sign(message):
     with open(file_name, "wb") as f:
         file_content = bot.download_file(file_info.file_path)
         f.write(file_content)
-        files.append(file_content)
+        if chat_id not in files:
+            files[chat_id] = []
+        files[chat_id].append(file_content)
     user = BotDB.get_user_by_user_id(chat_id)
-    BotDB.add_sign_video(chat_id, user[5], sign_id, file_content, user[8])
+    BotDB.add_sign_video(chat_id, user[5], sign_id[chat_id], file_content, user[8])
 
-    isRunning = False
+    isRunning[chat_id] = False
     bot.send_message(chat_id, 'Ваш вариант жеста добавлен')
 
 @bot.callback_query_handler(func=lambda c: re.findall("/add_sen_video",c.data))
@@ -1231,11 +1235,11 @@ def process_callback_add_sen_video(callback_query: types.CallbackQuery):
     global isRunning
     global sen_id
     bot.answer_callback_query(callback_query.id)
-    if not isRunning:
-        chat_id = callback_query.from_user.id
-        sen_id = int(re.findall("\d+", callback_query.data)[0])
+    chat_id = callback_query.from_user.id
+    if chat_id not in isRunning or isRunning[chat_id] == False:
+        sen_id[chat_id] = int(re.findall("\d+", callback_query.data)[0])
         msg = bot.send_message(chat_id, 'Отправьте видео со своим вариантом выбранного предложения')
-        isRunning = True
+        isRunning[chat_id] = True
         bot.register_next_step_handler(msg, add_sen_video_for_sen)
         
 def add_sen_video_for_sen(message):
@@ -1252,11 +1256,13 @@ def add_sen_video_for_sen(message):
     with open(file_name, "wb") as f:
         file_content = bot.download_file(file_info.file_path)
         f.write(file_content)
-        files.append(file_content)
+        if chat_id not in files:
+            files[chat_id] = []
+        files[chat_id].append(file_content)
     user = BotDB.get_user_by_user_id(chat_id)
-    BotDB.add_sen_video(chat_id, user[5], sen_id, file_content, user[8])
+    BotDB.add_sen_video(chat_id, user[5], sen_id[chat_id], file_content, user[8])
 
-    isRunning = False
+    isRunning[chat_id] = False
     bot.send_message(chat_id, 'Ваш вариант предложения добавлен')
 
 bot.polling(none_stop=True)
