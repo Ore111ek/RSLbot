@@ -16,12 +16,15 @@ comp_sen_video_id = {}
 files = {}
 Sign_Sen_Flag = {}
 Sign_Sen_search_Flag = {}
+Sign_Sen_comm_Flag = {}
 
+comm_text = {}
 dialect_name = {}
 sign_name = {}
 video_id = {}
 sign_id = {}
 sen_id = {}
+comm_id = {}
 delete_flag = {}
 
 def form_text_num_signs(num):
@@ -107,12 +110,14 @@ def form_sen_keyboard(chat_id,sen_id,video_id = 0):
         video_id = videos[0][0]
         author_id = videos[0][3]
         ver_num = 1
+        video_privacy = videos[0][4]
     else:
         i = 1
         for v in videos:
             if video_id == v[0]:
                 ver_num = i
                 author_id = v[3]
+                video_privacy = v[4]
             i += 1
     if len(videos) < 2:
         ver_num = 0
@@ -143,16 +148,29 @@ def form_sen_keyboard(chat_id,sen_id,video_id = 0):
     if len(BotDB.search_comp_signs_by_sen(video_id,chat_id)):
         btn = types.InlineKeyboardButton("Жесты", callback_data = '/show_comp_sign_f_1_'+str(video_id))
         btns.append(btn)
+    comments = BotDB.get_comms_by_sen_video_id(video_id,chat_id)
+    if len(comments):
+        btn = types.InlineKeyboardButton("Комментарии", callback_data = '/show_comms_sen_'+str(video_id))
+        btns.append(btn)
     if user[7]%10 == 1 and ((len(categories) == 0) or (author_id == chat_id) or (user[7]//10 == 1)):
         btn = types.InlineKeyboardButton("Изм.категорию", callback_data = '/change_sen_cat_f_1_'+str(sen_id))
         btns.append(btn)
     if user[7]%10 == 1:
         btn = types.InlineKeyboardButton("+ Вариант", callback_data = '/add_sen_video_'+str(sen_id))
         btns.append(btn)
-    if user[7]%10 == 1:
         btn = types.InlineKeyboardButton("Доб/Уд. Жесты", callback_data = '/add_comp_sen_'+str(video_id))
         btns.append(btn)
+        btn = types.InlineKeyboardButton("+ Коммент", callback_data = '/add_comm_sen_'+str(video_id))
+        btns.append(btn)
+    if user[7]%10 == 1 and ((sen[3] == chat_id) or (user[7]//10 == 1)):
+        btn = types.InlineKeyboardButton("✏️ Ред.", callback_data = '/ch_sen_info_'+str(sen_id))
+        btns.append(btn)
     if user[7]%10 == 1 and ((author_id == chat_id) or (user[7]//10 == 1)):
+        if video_privacy == 0:
+            btn = types.InlineKeyboardButton("Публичный", callback_data = '/ch_video_priv_sen_f_'+str(video_id))
+        else:
+            btn = types.InlineKeyboardButton("Скрытый", callback_data = '/ch_video_priv_sen_t_'+str(video_id))
+        btns.append(btn)
         btn = types.InlineKeyboardButton("❌ Удалить", callback_data = '/del_video_sen_'+str(video_id))
         btns.append(btn)
     if len(btns):
@@ -186,12 +204,14 @@ def form_sign_keyboard(chat_id,sign_id,video_id = 0):
         video_id = videos[0][0]
         author_id = videos[0][3]
         ver_num = 1
+        video_privacy = videos[0][4]
     else:
         i = 1
         for v in videos:
             if video_id == v[0]:
                 ver_num = i
                 author_id = v[3]
+                video_privacy = v[4]
             i += 1
     if len(videos) < 2:
         ver_num = 0
@@ -219,6 +239,10 @@ def form_sign_keyboard(chat_id,sign_id,video_id = 0):
         for cat in categories:
             btn = types.InlineKeyboardButton(cat[1], callback_data = '/show_cat_signs_f_1_'+str(cat[0]))
             btns.append(btn)
+    comments = BotDB.get_comms_by_sign_video_id(video_id,chat_id)
+    if len(comments):
+        btn = types.InlineKeyboardButton("Комментарии", callback_data = '/show_comms_sign_'+str(video_id))
+        btns.append(btn)
     if len(BotDB.search_sim_sign_videos(video_id,chat_id)):
         btn = types.InlineKeyboardButton("Похожие жесты", callback_data = '/show_sim_f_1_'+str(video_id))
         btns.append(btn)
@@ -231,13 +255,21 @@ def form_sign_keyboard(chat_id,sign_id,video_id = 0):
     if user[7]%10 == 1:
         btn = types.InlineKeyboardButton("+ Вариант", callback_data = '/add_sign_video_'+str(sign_id))
         btns.append(btn)
-    if user[7]%10 == 1:
         btn = types.InlineKeyboardButton("Доб/Уд.похожие", callback_data = '/add_sim_sign_'+str(video_id))
         btns.append(btn)
-    if user[7]%10 == 1:
         btn = types.InlineKeyboardButton("Указ.предлож.", callback_data = '/add_comp_sign_'+str(video_id))
         btns.append(btn)
+        btn = types.InlineKeyboardButton("+ Коммент", callback_data = '/add_comm_sign_'+str(video_id))
+        btns.append(btn)
+    if user[7]%10 == 1 and ((sign[4] == chat_id) or (user[7]//10 == 1)):
+        btn = types.InlineKeyboardButton("✏️ Ред.", callback_data = '/ch_sign_info_'+str(sign_id))
+        btns.append(btn)
     if user[7]%10 == 1 and ((author_id == chat_id) or (user[7]//10 == 1)):
+        if video_privacy == 0:
+            btn = types.InlineKeyboardButton("Публичный", callback_data = '/ch_video_priv_sign_f_'+str(video_id))
+        else:
+            btn = types.InlineKeyboardButton("Скрытый", callback_data = '/ch_video_priv_sign_t_'+str(video_id))
+        btns.append(btn)
         btn = types.InlineKeyboardButton("❌ Удалить", callback_data = '/del_video_sign_'+str(video_id))
         btns.append(btn)
     if len(btns):
@@ -257,13 +289,13 @@ def form_sign_keyboard(chat_id,sign_id,video_id = 0):
     return markup,ver_num
 
 def form_list_msg_key(objects,pg_num,pg_attr,obj_ref = '/show_sign',pg_ref = '/search_pg',video_flag = 0):
-    if not pg_ref.startswith('/show_comp_sign_pg'):
+    if not pg_ref.startswith('/show_comp_sign'):
         objects.sort(key=lambda x: x[1])
         objects.sort(key=lambda x: ord(x[1][0]) if x[1][0]!='Ё' else ord('Е')+0.5)
 
     if obj_ref.startswith("/show_sign"):
         msg = '<b>'+form_text_num_signs(len(objects))+'</b>'
-    elif obj_ref.startswith("/show_cat"):
+    elif obj_ref.startswith("/show_cat") or obj_ref.startswith("/ch_sign_cat") or obj_ref.startswith("/ch_sen_cat"):
         msg = '<b>'+form_text_num_cats(len(objects))+'</b>'
     else:
         msg = '<b>'+form_text_num_sens(len(objects))+'</b>'
@@ -343,9 +375,10 @@ def start(message):
             isRunning[chat_id] = True
             dialects = BotDB.get_dialects()
             btns = []
-            for d in dialects:
-                btn = types.KeyboardButton(d[1])
-                btns.append(btn)
+            if dialects:
+                for d in dialects:
+                    btn = types.KeyboardButton(d[1])
+                    btns.append(btn)
             markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width = 2)
             markup.add(*btns)
             photo = open('RussiaMap.png', 'rb')
@@ -502,6 +535,7 @@ def del_video_ack(message):
     else:
         bot.send_message(chat_id, 'Удаление отменено',reply_markup=types.ReplyKeyboardRemove())
     isRunning[chat_id] = False
+    del video_id[chat_id]
 
 @bot.message_handler(is_owner=True, commands=["ping"])
 def cmd_ping_bot(message):
@@ -561,7 +595,7 @@ def add_ask_sign_name(message):
         markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width = 2)
         markup.add(types.KeyboardButton('Существительное'),types.KeyboardButton('Глагол'))
         markup.add(types.KeyboardButton('Наречие'),types.KeyboardButton('Прилагательное'))
-        msg = bot.send_message(chat_id, 'Выберите часть речи', reply_markup = markup)
+        msg = bot.send_message(chat_id, 'Выберите или напишите свою часть речи', reply_markup = markup)
         bot.register_next_step_handler(msg, add_ask_sign_part)
 
 def add_ask_sign_part(message):
@@ -584,18 +618,466 @@ def add_ask_sign_part(message):
             video_id = BotDB.add_sign_video(chat_id, dialect, sign_id, f, privacy)
     del files[chat_id]
     isRunning[chat_id] = False
-    bot.send_message(chat_id, 'Спасибо за вклад, жест "' + sign_name + '" добавлен)', reply_markup=types.ReplyKeyboardRemove())
+    bot.send_message(chat_id, 'Спасибо за вклад, жест "' + sign_name[chat_id] + '" добавлен', reply_markup=types.ReplyKeyboardRemove())
     """
     ВЫЗЫВАТЬ ФУНКЦИЮ ДЛЯ ПОКАЗА ДОБАВЛЕННОГО ЖЕСТА ПО ПОСЛЕДНЕМУ video_id!!!!!!!!!!!!!!
-
-
-
-
-    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-
-    !!!!!!!!!!!!!!!
     """
+    sign = BotDB.search_sign(sign_id,chat_id);
+    video = BotDB.search_sign_videos(sign_id, chat_id)[0]
+    markup,ver_num = form_sign_keyboard(chat_id,sign_id,0)
+    msg = form_sign_text(sign,ver_num)
+    bot.send_video(chat_id, video[2], caption = msg, parse_mode = 'html', reply_markup=markup)
+
+@bot.callback_query_handler(func=lambda c: re.findall("/add_comm",c.data))
+def process_callback_add_comm(callback_query: types.CallbackQuery):
+    global isRunning
+    global video_id
+    bot.answer_callback_query(callback_query.id)
+    chat_id = callback_query.from_user.id
+    if chat_id not in isRunning or isRunning[chat_id] == False:
+        Sign_Sen_comm_Flag[chat_id] = 1 if re.split('_', callback_query.data)[2] == 'sign' else 0
+        video_id[chat_id] = int(re.findall("\d+", callback_query.data)[0])
+        isRunning[chat_id] = True
+        msg = bot.send_message(chat_id, 'Напишите текст комментария')
+        bot.register_next_step_handler(msg, get_comm_text)
+
+def get_comm_text(message):
+    global comm_text
+    chat_id = message.chat.id
+    text = message.text
+    if not text:
+        msg = bot.send_message(chat_id, 'Текст пустой, отправьте ещё раз')
+        bot.register_next_step_handler(msg, get_comm_text) #askSource
+        return
+    comm_text[chat_id] = text
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width = 2)
+    markup.add(types.KeyboardButton('Приватный'),types.KeyboardButton('Публичный'))
+    msg = bot.send_message(chat_id, 'Выберите видимость комментария', reply_markup = markup)
+    bot.register_next_step_handler(msg, get_comm_privacy)
+
+def get_comm_privacy(message):
+    global isRunning
+    global video_id
+    global comm_text
+    chat_id = message.chat.id
+    text = message.text
+    if not text:
+        msg = bot.send_message(chat_id, 'Текст пустой, отправьте ещё раз')
+        bot.register_next_step_handler(msg, get_comm_privacy) #askSource
+        return
+    privacy = 0 if text=="Публичный" else 1
+    if Sign_Sen_comm_Flag[chat_id] == 1:
+        BotDB.add_comm_sign(comm_text[chat_id], chat_id, video_id[chat_id], privacy)
+    else:
+        BotDB.add_comm_sen(comm_text[chat_id], chat_id, video_id[chat_id], privacy)
+    del Sign_Sen_comm_Flag[chat_id]
+    del video_id[chat_id]
+    del comm_text[chat_id]
+    isRunning[chat_id] = False
+    bot.send_message(chat_id, 'Комментарий добавлен', reply_markup=types.ReplyKeyboardRemove())
+
+@bot.callback_query_handler(func=lambda c: re.findall("/show_comms_sign",c.data))
+def process_callback_show_comms_sign(callback_query: types.CallbackQuery):
+    bot.answer_callback_query(callback_query.id)
+    chat_id = callback_query.from_user.id
+    user = BotDB.get_user_by_user_id(chat_id)
+    video_id = int(re.findall("\d+", callback_query.data)[0])
+    comments = BotDB.get_comms_by_sign_video_id(video_id,chat_id)
+    sign = BotDB.search_sign_by_video(video_id)
+
+    markup = types.InlineKeyboardMarkup()
+    markup.row_width = 8
+    btns = []
+
+    msg = 'Комментарии к видео жеста <b>"'+ sign[1] +'"</b>:\n'
+    for com in comments:
+        if user[7]%10 == 1 and ((com[2] == chat_id) or (user[7]//10 == 1)):
+            msg = msg + "<b>" + com[3] + "</b>("+str(com[0])+"): " + com[1] + "\n"
+            btn = types.InlineKeyboardButton(str(com[0])+" ✏️", callback_data = '/ch_comm_sign'+str(com[0]))
+            btns.append(btn)
+            btn = types.InlineKeyboardButton(str(com[0])+" ❌", callback_data = '/del_comm_sign'+str(com[0]))
+            btns.append(btn)
+        else:
+            msg = msg + "<b>" + com[3] + "</b>: " + com[1] + "\n"
+        #msg = msg + com[0] + "\n"
+        #msg = msg + "<b>" + com[1] + "</b>\n"
+    markup.add(*btns)
+    bot.send_message(chat_id, msg, parse_mode = 'html', reply_markup = markup)
+
+@bot.callback_query_handler(func=lambda c: re.findall("/ch_comm_sign",c.data))
+def process_callback_ch_comm_sign(callback_query: types.CallbackQuery):
+    global isRunning
+    global comm_id
+    bot.answer_callback_query(callback_query.id)
+    chat_id = callback_query.from_user.id
+    if chat_id not in isRunning or isRunning[chat_id] == False:
+        comm_id[chat_id] = int(re.findall("\d+", callback_query.data)[0])
+        isRunning[chat_id] = True
+        msg = bot.send_message(chat_id, 'Напишите новый текст комментария')
+        bot.register_next_step_handler(msg, ch_comm_sign_text)
+
+def ch_comm_sign_text(message):
+    global isRunning
+    global comm_id
+    chat_id = message.chat.id
+    text = message.text
+    if not text:
+        msg = bot.send_message(chat_id, 'Текст пустой, отправьте ещё раз')
+        bot.register_next_step_handler(msg, ch_comm_sign_text) #askSource
+        return
+    BotDB.ch_comm_sign_text(comm_id[chat_id],text)
+    del comm_id[chat_id]
+    isRunning[chat_id] = False
+    bot.send_message(chat_id, 'Текст комментария изменён', reply_markup=types.ReplyKeyboardRemove())
+
+@bot.callback_query_handler(func=lambda c: re.findall("/ch_comm_sen",c.data))
+def process_callback_ch_comm_sen(callback_query: types.CallbackQuery):
+    global isRunning
+    global comm_id
+    bot.answer_callback_query(callback_query.id)
+    chat_id = callback_query.from_user.id
+    if chat_id not in isRunning or isRunning[chat_id] == False:
+        comm_id[chat_id] = int(re.findall("\d+", callback_query.data)[0])
+        isRunning[chat_id] = True
+        msg = bot.send_message(chat_id, 'Напишите новый текст комментария')
+        bot.register_next_step_handler(msg, ch_comm_sen_text)
+
+def ch_comm_sen_text(message):
+    global isRunning
+    global comm_id
+    chat_id = message.chat.id
+    text = message.text
+    if not text:
+        msg = bot.send_message(chat_id, 'Текст пустой, отправьте ещё раз')
+        bot.register_next_step_handler(msg, ch_comm_sen_text) #askSource
+        return
+    BotDB.ch_comm_sen_text(comm_id[chat_id],text)
+    del comm_id[chat_id]
+    isRunning[chat_id] = False
+    bot.send_message(chat_id, 'Текст комментария изменён', reply_markup=types.ReplyKeyboardRemove())
+    """
+    @bot.callback_query_handler(func=lambda c: re.findall("/del_video",c.data))
+def process_callback_del_video_sign(callback_query: types.CallbackQuery):
+    global isRunning
+    global delete_flag
+    global video_id
+    bot.answer_callback_query(callback_query.id)
+    chat_id = callback_query.from_user.id
+    if chat_id not in isRunning or isRunning[chat_id] == False:
+        chat_id = callback_query.from_user.id
+        delete_flag[chat_id] = re.split('_', callback_query.data)[2]
+        video_id[chat_id] = int(re.split('_', callback_query.data)[3])
+        isRunning[chat_id] = True
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width = 2)
+        markup.add(types.KeyboardButton('Удалить'),types.KeyboardButton('Отмена'))
+        msg = bot.send_message(chat_id, 'Подтвердите удаление видео', reply_markup = markup)
+        bot.register_next_step_handler(msg, del_video_ack)
+
+def del_video_ack(message):
+    global isRunning
+    global delete_flag
+    global video_id
+    chat_id = message.chat.id
+    text = message.text
+    if text == 'Удалить':
+        if chat_id not in delete_flag or delete_flag[chat_id] == 'sign':
+            BotDB.del_sign_video(video_id[chat_id])
+        else:
+            BotDB.del_sen_video(video_id[chat_id])
+        bot.send_message(chat_id, 'Видео удалено',reply_markup=types.ReplyKeyboardRemove())
+    else:
+        bot.send_message(chat_id, 'Удаление отменено',reply_markup=types.ReplyKeyboardRemove())
+    isRunning[chat_id] = False
+    """
+
+@bot.callback_query_handler(func=lambda c: re.findall("/del_comm_sign",c.data))
+def process_callback_del_comm_sign(callback_query: types.CallbackQuery):
+    global isRunning
+    global comm_id
+    bot.answer_callback_query(callback_query.id)
+    chat_id = callback_query.from_user.id
+    if chat_id not in isRunning or isRunning[chat_id] == False:
+        comm_id[chat_id] = int(re.findall("\d+", callback_query.data)[0])
+        isRunning[chat_id] = True
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width = 2)
+        markup.add(types.KeyboardButton('Удалить'),types.KeyboardButton('Отмена'))
+        msg = bot.send_message(chat_id, 'Подтвердите удаление комментария', reply_markup = markup)
+        bot.register_next_step_handler(msg, del_comm_sign)
+
+def del_comm_sign(message):
+    global isRunning
+    global comm_id
+    chat_id = message.chat.id
+    text = message.text
+    if text == 'Удалить':
+        BotDB.del_comm_sign(comm_id[chat_id])
+        bot.send_message(chat_id, 'Комментарий удалён',reply_markup=types.ReplyKeyboardRemove())
+    else:
+        bot.send_message(chat_id, 'Удаление отменено',reply_markup=types.ReplyKeyboardRemove())
+    del comm_id[chat_id]
+    isRunning[chat_id] = False
+
+@bot.callback_query_handler(func=lambda c: re.findall("/del_comm_sen",c.data))
+def process_callback_del_comm_sen(callback_query: types.CallbackQuery):
+    global isRunning
+    global comm_id
+    bot.answer_callback_query(callback_query.id)
+    chat_id = callback_query.from_user.id
+    if chat_id not in isRunning or isRunning[chat_id] == False:
+        comm_id[chat_id] = int(re.findall("\d+", callback_query.data)[0])
+        isRunning[chat_id] = True
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width = 2)
+        markup.add(types.KeyboardButton('Удалить'),types.KeyboardButton('Отмена'))
+        msg = bot.send_message(chat_id, 'Подтвердите удаление комментария', reply_markup = markup)
+        bot.register_next_step_handler(msg, del_comm_sen)
+
+def del_comm_sen(message):
+    global isRunning
+    global comm_id
+    chat_id = message.chat.id
+    text = message.text
+    if text == 'Удалить':
+        BotDB.del_comm_sen(comm_id[chat_id])
+        bot.send_message(chat_id, 'Комментарий удалён',reply_markup=types.ReplyKeyboardRemove())
+    else:
+        bot.send_message(chat_id, 'Удаление отменено',reply_markup=types.ReplyKeyboardRemove())
+    del comm_id[chat_id]
+    isRunning[chat_id] = False
+
+@bot.callback_query_handler(func=lambda c: re.findall("/show_comms_sen",c.data))
+def process_callback_show_comms_sign(callback_query: types.CallbackQuery):
+    bot.answer_callback_query(callback_query.id)
+    chat_id = callback_query.from_user.id
+    user = BotDB.get_user_by_user_id(chat_id)
+    video_id = int(re.findall("\d+", callback_query.data)[0])
+    comments = BotDB.get_comms_by_sen_video_id(video_id,chat_id)
+    sen = BotDB.search_sen_by_video(video_id)
+
+    markup = types.InlineKeyboardMarkup()
+    markup.row_width = 8
+    btns = []
+
+    msg = 'Комментарии к видео предложения <b>"'+ sen[1] +'"</b>:\n'
+    for com in comments:
+        if user[7]%10 == 1 and ((com[2] == chat_id) or (user[7]//10 == 1)):
+            msg = msg + "<b>" + com[3] + "</b>("+str(com[0])+"): " + com[1] + "\n"
+            btn = types.InlineKeyboardButton(str(com[0])+" ✏️", callback_data = '/ch_comm_sen'+str(com[0]))
+            btns.append(btn)
+            btn = types.InlineKeyboardButton(str(com[0])+" ❌", callback_data = '/del_comm_sen'+str(com[0]))
+            btns.append(btn)
+        else:
+            msg = msg + "<b>" + com[3] + "</b>: " + com[1] + "\n"
+        #msg = msg + com[0] + "\n"
+        #msg = msg + "<b>" + com[1] + "</b>\n"
+    markup.add(*btns)
+    bot.send_message(chat_id, msg, parse_mode = 'html', reply_markup = markup)
+
+
+@bot.callback_query_handler(func=lambda c: re.findall("/ch_sign_info",c.data))
+def process_callback_ch_sign_info(callback_query: types.CallbackQuery):
+    bot.answer_callback_query(callback_query.id)
+    chat_id = callback_query.from_user.id
+    sign_id = int(re.findall("\d+", callback_query.data)[0])
+
+    markup = types.InlineKeyboardMarkup()
+    markup.row_width = 2
+    btns = []
+    btn = types.InlineKeyboardButton("Название", callback_data = '/ch_sign_name'+str(sign_id))
+    btns.append(btn)
+    btn = types.InlineKeyboardButton("Часть речи", callback_data = '/ch_sign_part'+str(sign_id))
+    btns.append(btn)
+    btn = types.InlineKeyboardButton("Описание", callback_data = '/ch_sign_desc'+str(sign_id))
+    btns.append(btn)
+    #btn = types.InlineKeyboardButton("Диалект", callback_data = '/ch_sign_dialect'+str(sign_id))
+    #btns.append(btn)
+
+    markup.add(*btns)
+    sign = BotDB.search_sign(sign_id, chat_id)
+    msg = "Изменить для жеста <b>" + sign[1] + "</b>"
+    bot.send_message(chat_id, msg, parse_mode = 'html', reply_markup = markup)
+
+@bot.callback_query_handler(func=lambda c: re.findall("/ch_sign_name",c.data))
+def process_callback_ch_sign_name(callback_query: types.CallbackQuery):
+    global isRunning
+    global sign_id
+    bot.answer_callback_query(callback_query.id)
+    chat_id = callback_query.from_user.id
+    if chat_id not in isRunning or isRunning[chat_id] == False:
+        sign_id[chat_id] = int(re.findall("\d+", callback_query.data)[0])
+        isRunning[chat_id] = True
+        msg = bot.send_message(chat_id, 'Напишите новое название жеста')
+        bot.register_next_step_handler(msg, ch_sign_name)
+
+def ch_sign_name(message):
+    global isRunning
+    global sign_id
+    chat_id = message.chat.id
+    text = message.text
+    if not text:
+        msg = bot.send_message(chat_id, 'Текст пустой, отправьте ещё раз')
+        bot.register_next_step_handler(msg, ch_sign_name) #askSource
+        return
+    BotDB.ch_sign_name(sign_id[chat_id],text)
+    del sign_id[chat_id]
+    isRunning[chat_id] = False
+    bot.send_message(chat_id, 'Название жеста "' + text + '" установлено', reply_markup=types.ReplyKeyboardRemove())
+
+@bot.callback_query_handler(func=lambda c: re.findall("/ch_sign_part",c.data))
+def process_callback_ch_sign_part(callback_query: types.CallbackQuery):
+    global isRunning
+    global sign_id
+    bot.answer_callback_query(callback_query.id)
+    chat_id = callback_query.from_user.id
+    if chat_id not in isRunning or isRunning[chat_id] == False:
+        sign_id[chat_id] = int(re.findall("\d+", callback_query.data)[0])
+        isRunning[chat_id] = True
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width = 2)
+        markup.add(types.KeyboardButton('Существительное'),types.KeyboardButton('Глагол'))
+        markup.add(types.KeyboardButton('Наречие'),types.KeyboardButton('Прилагательное'))
+        msg = bot.send_message(chat_id, 'Выберите или напишите свою часть речи', reply_markup = markup)
+        bot.register_next_step_handler(msg, ch_sign_part)
+
+def ch_sign_part(message):
+    global isRunning
+    global sign_id
+    chat_id = message.chat.id
+    text = message.text
+    if not text:
+        msg = bot.send_message(chat_id, 'Текст пустой, отправьте ещё раз')
+        bot.register_next_step_handler(msg, ch_sign_part) #askSource
+        return
+    BotDB.ch_sign_part(sign_id[chat_id],text)
+    del sign_id[chat_id]
+    isRunning[chat_id] = False
+    bot.send_message(chat_id, 'Часть речи изменена на "' + text + '"', reply_markup=types.ReplyKeyboardRemove())
+
+@bot.callback_query_handler(func=lambda c: re.findall("/ch_sign_desc",c.data))
+def process_callback_ch_sign_desc(callback_query: types.CallbackQuery):
+    global isRunning
+    global sign_id
+    bot.answer_callback_query(callback_query.id)
+    chat_id = callback_query.from_user.id
+    if chat_id not in isRunning or isRunning[chat_id] == False:
+        sign_id[chat_id] = int(re.findall("\d+", callback_query.data)[0])
+        isRunning[chat_id] = True
+        msg = bot.send_message(chat_id, 'Напишите новое описание жеста')
+        bot.register_next_step_handler(msg, ch_sign_desc)
+
+def ch_sign_desc(message):
+    global isRunning
+    global sign_id
+    chat_id = message.chat.id
+    text = message.text
+    if not text:
+        msg = bot.send_message(chat_id, 'Текст пустой, отправьте ещё раз')
+        bot.register_next_step_handler(msg, ch_sign_desc) #askSource
+        return
+    BotDB.ch_sign_desc(sign_id[chat_id],text)
+    del sign_id[chat_id]
+    isRunning[chat_id] = False
+    bot.send_message(chat_id, 'Описание жеста изменено', reply_markup=types.ReplyKeyboardRemove())
+
+    """
+    ДИАЛЕКТ НЕ У ЖЕСТА, ДИАЛЕКТ У ВИДЕО жеста
+@bot.callback_query_handler(func=lambda c: re.findall("/ch_sign_dialect",c.data))
+def process_callback_ch_sign_dialect(callback_query: types.CallbackQuery):
+    global isRunning
+    global sign_id
+    bot.answer_callback_query(callback_query.id)
+    chat_id = callback_query.from_user.id
+    if chat_id not in isRunning or isRunning[chat_id] == False:
+        sign_id[chat_id] = int(re.findall("\d+", callback_query.data)[0])
+        isRunning[chat_id] = True
+        msg = bot.send_message(chat_id, 'Напишите новое описание жеста')
+        bot.register_next_step_handler(msg, ch_sign_dialect)
+
+def ch_sign_dialect(message):
+    global isRunning
+    global sign_id
+    chat_id = message.chat.id
+    text = message.text
+    if not text:
+        msg = bot.send_message(chat_id, 'Текст пустой, отправьте ещё раз')
+        bot.register_next_step_handler(msg, ch_sign_dialect) #askSource
+        return
+    BotDB.ch_sign_desc(sign_id[chat_id],text)
+    del sign_id[chat_id]
+    isRunning[chat_id] = False
+    bot.send_message(chat_id, 'Диалект жеста изменён', reply_markup=types.ReplyKeyboardRemove())
+    """
+
+@bot.callback_query_handler(func=lambda c: re.findall("/ch_sen_info",c.data))
+def process_callback_ch_sign_info(callback_query: types.CallbackQuery):
+    bot.answer_callback_query(callback_query.id)
+    chat_id = callback_query.from_user.id
+    sen_id = int(re.findall("\d+", callback_query.data)[0])
+
+    markup = types.InlineKeyboardMarkup()
+    markup.row_width = 1
+    btns = []
+    btn = types.InlineKeyboardButton("Текст предложения", callback_data = '/ch_sen_name'+str(sen_id))
+    btns.append(btn)
+    btn = types.InlineKeyboardButton("Описание", callback_data = '/ch_sen_desc'+str(sen_id))
+    btns.append(btn)
+    #btn = types.InlineKeyboardButton("Диалект", callback_data = '/ch_sign_dialect'+str(sign_id))
+    #btns.append(btn)
+
+    markup.add(*btns)
+    sen = BotDB.search_sen(sen_id, chat_id)
+    msg = 'Изменить для предложения <b>"' + sen[1] + '"</b>'
+    bot.send_message(chat_id, msg, parse_mode = 'html', reply_markup = markup)
+
+@bot.callback_query_handler(func=lambda c: re.findall("/ch_sen_name",c.data))
+def process_callback_ch_sen_name(callback_query: types.CallbackQuery):
+    global isRunning
+    global sen_id
+    bot.answer_callback_query(callback_query.id)
+    chat_id = callback_query.from_user.id
+    if chat_id not in isRunning or isRunning[chat_id] == False:
+        sen_id[chat_id] = int(re.findall("\d+", callback_query.data)[0])
+        isRunning[chat_id] = True
+        msg = bot.send_message(chat_id, 'Напишите новый текст предложения')
+        bot.register_next_step_handler(msg, ch_sen_name)
+
+def ch_sen_name(message):
+    global isRunning
+    global sen_id
+    chat_id = message.chat.id
+    text = message.text
+    if not text:
+        msg = bot.send_message(chat_id, 'Текст пустой, отправьте ещё раз')
+        bot.register_next_step_handler(msg, ch_sen_name) #askSource
+        return
+    BotDB.ch_sen_name(sen_id[chat_id],text)
+    del sen_id[chat_id]
+    isRunning[chat_id] = False
+    bot.send_message(chat_id, 'Текст предложения изменён', reply_markup=types.ReplyKeyboardRemove())
+
+@bot.callback_query_handler(func=lambda c: re.findall("/ch_sen_desc",c.data))
+def process_callback_ch_sen_desc(callback_query: types.CallbackQuery):
+    global isRunning
+    global sen_id
+    bot.answer_callback_query(callback_query.id)
+    chat_id = callback_query.from_user.id
+    if chat_id not in isRunning or isRunning[chat_id] == False:
+        sen_id[chat_id] = int(re.findall("\d+", callback_query.data)[0])
+        isRunning[chat_id] = True
+        msg = bot.send_message(chat_id, 'Напишите новое описание для предложения')
+        bot.register_next_step_handler(msg, ch_sen_desc)
+
+def ch_sen_desc(message):
+    global isRunning
+    global sen_id
+    chat_id = message.chat.id
+    text = message.text
+    if not text:
+        msg = bot.send_message(chat_id, 'Текст пустой, отправьте ещё раз')
+        bot.register_next_step_handler(msg, ch_sen_desc) #askSource
+        return
+    BotDB.ch_sen_desc(sen_id[chat_id],text)
+    del sen_id[chat_id]
+    isRunning[chat_id] = False
+    bot.send_message(chat_id, 'Описание предложения изменено', reply_markup=types.ReplyKeyboardRemove())
 
 @bot.message_handler(commands=['add_sen'])
 def add_sign_handler(message):
@@ -832,6 +1314,25 @@ def process_callback_change_sign_folder(callback_query: types.CallbackQuery):
             BotDB.make_sign_video_nlearn(chat_id,video_id)
 
     markup, ver_num = form_sign_keyboard(chat_id,0,video_id)
+    bot.edit_message_reply_markup(chat_id = chat_id, message_id = callback_query.message.message_id, reply_markup=markup)
+
+@bot.callback_query_handler(func=lambda c: re.findall("/ch_video_priv",c.data))
+def process_callback_change_sign_folder(callback_query: types.CallbackQuery):
+    bot.answer_callback_query(callback_query.id)
+    chat_id = callback_query.from_user.id
+    video_id = int(re.findall("\d+", callback_query.data)[0])
+    if re.split("_", callback_query.data)[3] == 'sign':
+        if re.split("_", callback_query.data)[4].startswith('t'):
+            BotDB.make_sign_video_public(video_id)
+        else:
+            BotDB.make_sign_video_private(video_id)
+        markup, ver_num = form_sign_keyboard(chat_id,0,video_id)
+    else:
+        if re.split("_", callback_query.data)[4].startswith('t'):
+            BotDB.make_sen_video_public(video_id)
+        else:
+            BotDB.make_sen_video_private(video_id)
+        markup, ver_num = form_sen_keyboard(chat_id,0,video_id)
     bot.edit_message_reply_markup(chat_id = chat_id, message_id = callback_query.message.message_id, reply_markup=markup)
 
 @bot.message_handler(commands=['print_dict'])
@@ -1178,7 +1679,7 @@ def process_callback_add_sim_sign(callback_query: types.CallbackQuery):
         bot.answer_callback_query(
             callback_query.id,
             text='Теперь нажмите кнопку "Доб/Уд. Жесты" на предложении', show_alert=False)
-    elif (chat_id not in comp_video_id and comp_video_id[chat_id] == 0) and (chat_id in comp_sen_video_id or comp_sen_video_id[chat_id] != 0):
+    elif (chat_id not in comp_video_id or comp_video_id[chat_id] == 0) and (chat_id in comp_sen_video_id and comp_sen_video_id[chat_id] != 0):
         bot.answer_callback_query(
             callback_query.id,
             text='Теперь нажмите кнопку "Указ.предлож." на жесте', show_alert=False)
@@ -1221,9 +1722,9 @@ def add_sign_video_for_sign(message):
     with open(file_name, "wb") as f:
         file_content = bot.download_file(file_info.file_path)
         f.write(file_content)
-        if chat_id not in files:
-            files[chat_id] = []
-        files[chat_id].append(file_content)
+        #if chat_id not in files:
+        #    files[chat_id] = []
+        #files[chat_id].append(file_content)
     user = BotDB.get_user_by_user_id(chat_id)
     BotDB.add_sign_video(chat_id, user[5], sign_id[chat_id], file_content, user[8])
 
@@ -1256,9 +1757,9 @@ def add_sen_video_for_sen(message):
     with open(file_name, "wb") as f:
         file_content = bot.download_file(file_info.file_path)
         f.write(file_content)
-        if chat_id not in files:
-            files[chat_id] = []
-        files[chat_id].append(file_content)
+        #if chat_id not in files:
+        #    files[chat_id] = []
+        #files[chat_id].append(file_content)
     user = BotDB.get_user_by_user_id(chat_id)
     BotDB.add_sen_video(chat_id, user[5], sen_id[chat_id], file_content, user[8])
 
